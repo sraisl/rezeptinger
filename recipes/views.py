@@ -106,7 +106,8 @@ def data_export(request):
     return response
 
 
-@csrf_exempt
+# Intentional for local/headless import via curl and shortcuts; this app has no user accounts.
+@csrf_exempt  # nosemgrep: python.django.security.audit.csrf-exempt.csrf-exempt
 @require_http_methods(["POST"])
 def data_import(request):
     try:
@@ -128,7 +129,8 @@ def data_import(request):
     return redirect("recipes:index")
 
 
-@csrf_exempt
+# Intentional for local/headless extraction via curl and shortcuts; this app has no user accounts.
+@csrf_exempt  # nosemgrep: python.django.security.audit.csrf-exempt.csrf-exempt
 @require_http_methods(["POST"])
 def api_create_extraction(request):
     payload = _request_payload(request)
