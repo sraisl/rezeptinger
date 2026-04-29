@@ -301,6 +301,50 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(source.title, "Neuer Titel")
         self.assertEqual(source.recipe.title, "Neues Rezept")
 
+    def test_data_import_rejects_invalid_format(self):
+        response = self.client.post(
+            reverse("recipes:data_import"),
+            data={"format": "other", "version": 1, "sources": []},
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Rezeptinger-Katalogexport", response.json()["error"])
+
+    def test_data_import_rejects_missing_version(self):
+        response = self.client.post(
+            reverse("recipes:data_import"),
+            data={"format": "rezeptinger.catalog", "sources": []},
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Versionsnummer", response.json()["error"])
+
+    def test_data_import_rejects_unsupported_version(self):
+        response = self.client.post(
+            reverse("recipes:data_import"),
+            data={"format": "rezeptinger.catalog", "version": 99, "sources": []},
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("nicht unterstützt", response.json()["error"])
+
+    def test_data_import_rejects_invalid_sources(self):
+        response = self.client.post(
+            reverse("recipes:data_import"),
+            data={"format": "rezeptinger.catalog", "version": 2, "sources": {}},
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Quellenliste", response.json()["error"])
+
     def test_recipe_detail_links_to_edit_view(self):
         source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=edit-link")
         recipe = Recipe.objects.create(source=source, title="Editierbares Rezept")

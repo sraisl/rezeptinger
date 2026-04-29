@@ -10,6 +10,7 @@ from recipes.models import Recipe, RecipeSource, Tag
 from .ingredients import replace_recipe_ingredients
 
 EXPORT_VERSION = 2
+SUPPORTED_IMPORT_VERSIONS = {1, 2}
 
 
 def export_catalog() -> dict[str, Any]:
@@ -22,9 +23,7 @@ def export_catalog() -> dict[str, Any]:
 
 @transaction.atomic
 def import_catalog(payload: dict[str, Any]) -> dict[str, int]:
-    sources = payload.get("sources")
-    if payload.get("format") != "rezeptinger.catalog" or not isinstance(sources, list):
-        raise ValueError("Die Datei ist kein gültiger Rezeptinger-Export.")
+    sources = validate_import_payload(payload)
 
     imported_sources = 0
     imported_recipes = 0
@@ -74,6 +73,31 @@ def import_catalog(payload: dict[str, Any]) -> dict[str, int]:
             source.recipe.delete()
 
     return {"sources": imported_sources, "recipes": imported_recipes}
+
+
+def validate_import_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        raise ValueError("Die Datei ist kein gültiges JSON-Objekt.")
+
+    if payload.get("format") != "rezeptinger.catalog":
+        raise ValueError("Die Datei ist kein Rezeptinger-Katalogexport.")
+
+    version = payload.get("version")
+    if not isinstance(version, int):
+        raise ValueError("Der Rezeptinger-Export enthält keine gültige Versionsnummer.")
+
+    if version not in SUPPORTED_IMPORT_VERSIONS:
+        supported = ", ".join(str(value) for value in sorted(SUPPORTED_IMPORT_VERSIONS))
+        raise ValueError(
+            f"Rezeptinger-Exportversion {version} wird nicht unterstützt. "
+            f"Unterstützt werden: {supported}."
+        )
+
+    sources = payload.get("sources")
+    if not isinstance(sources, list):
+        raise ValueError("Der Rezeptinger-Export enthält keine gültige Quellenliste.")
+
+    return sources
 
 
 def _source_to_payload(source: RecipeSource) -> dict[str, Any]:
