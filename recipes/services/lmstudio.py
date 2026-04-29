@@ -7,6 +7,8 @@ from typing import Any
 
 import httpx
 
+from recipes.models import Tag
+
 from .app_settings import extraction_prompt, lm_studio_base_url, lm_studio_model, transcript_limit
 
 
@@ -240,6 +242,7 @@ def _raw_response_content(response: httpx.Response) -> str:
 
 def _build_prompt(video_title: str, channel: str, transcript: str) -> str:
     transcript = transcript[: transcript_limit()]
+    allowed_tags = ", ".join(_allowed_tag_names()) or "keine Tags verfügbar"
     return f"""
 Video-Titel: {video_title}
 Kanal: {channel}
@@ -258,8 +261,12 @@ Extrahiere ein Rezept in diesem JSON-Schema:
   ],
   "steps": ["Schritt 1", "Schritt 2"],
   "notes": ["wichtige Hinweise"],
+  "tags": ["bestehender-tag"],
   "confidence": 0.0
 }}
+
+Nutze für "tags" nur Tags aus dieser Liste. Wenn keiner passt, nutze eine leere Liste:
+{allowed_tags}
 
 Wenn kein Rezept erkennbar ist:
 {{"is_recipe": false, "reason": "kurze Begründung", "confidence": 0.0}}
@@ -288,6 +295,7 @@ def _normalize_recipe_payload(data: dict[str, Any]) -> dict[str, Any]:
         "ingredients": _as_list(data.get("ingredients")),
         "steps": _as_list(data.get("steps")),
         "notes": _as_list(data.get("notes")),
+        "tags": _string_list(data.get("tags")),
         "confidence": max(0.0, min(1.0, float(data.get("confidence") or 0.0))),
     }
 
@@ -298,3 +306,11 @@ def _as_list(value: Any) -> list[Any]:
     if value in (None, ""):
         return []
     return [value]
+
+
+def _string_list(value: Any) -> list[str]:
+    return [str(item).strip() for item in _as_list(value) if str(item).strip()]
+
+
+def _allowed_tag_names() -> list[str]:
+    return list(Tag.objects.values_list("name", flat=True))

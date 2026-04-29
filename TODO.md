@@ -2,13 +2,11 @@
 
 ## Next
 
-- [ ] Add AI-suggested tags and categories such as pasta, dessert, vegetarian, quick, and meal prep.
+- [ ] Make import/export more explicitly versioned with schema checks, export migrations, and optional compressed exports.
 
 ## Product
 
 ## Search And Data
-
-- [ ] Make import/export more explicitly versioned with schema checks, export migrations, and optional compressed exports.
 
 ## Extraction
 
@@ -32,6 +30,7 @@
 
 ## Done
 
+- [x] Let AI extraction assign existing recipe tags without creating new tags automatically.
 - [x] Add a small bookmarklet to send the current YouTube URL to Rezeptinger.
 - [x] Add tag filtering/search on the catalog page.
 - [x] Add manual tag selection to the regular recipe edit page.

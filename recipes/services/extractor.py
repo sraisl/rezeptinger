@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.db import transaction
 from django.utils import timezone
 
-from recipes.models import ExtractionAttempt, Recipe, RecipeSource
+from recipes.models import ExtractionAttempt, Recipe, RecipeSource, Tag
 
 from .duplicates import find_duplicate_video_recipe
 from .ingredients import replace_recipe_ingredients
@@ -113,6 +113,7 @@ def process_source(source: RecipeSource) -> RecipeSource:
                 },
             )
             replace_recipe_ingredients(recipe, payload["ingredients"])
+            _replace_recipe_tags(recipe, payload.get("tags", []))
             source.status = RecipeSource.Status.DONE
             source.error_message = ""
             source.queue_task_id = ""
@@ -139,6 +140,20 @@ def process_source(source: RecipeSource) -> RecipeSource:
         _finish_attempt(attempt, ExtractionAttempt.Status.FAILED, str(exc))
 
     return source
+
+
+def _replace_recipe_tags(recipe: Recipe, tag_names: list[str]) -> None:
+    normalized_names = {str(name).strip().lower() for name in tag_names if str(name).strip()}
+    if not normalized_names:
+        recipe.tags.clear()
+        return
+
+    tags = [
+        tag
+        for tag in Tag.objects.all()
+        if tag.name.lower() in normalized_names or tag.slug.lower() in normalized_names
+    ]
+    recipe.tags.set(tags)
 
 
 def _finish_attempt(

@@ -519,6 +519,8 @@ class ExtractionTests(TestCase):
 
     def test_process_source_creates_recipe(self):
         source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=test")
+        Tag.objects.create(name="Pasta")
+        Tag.objects.create(name="Dessert")
         video = YouTubeVideo(
             url=source.url,
             video_id="test",
@@ -538,6 +540,7 @@ class ExtractionTests(TestCase):
             "ingredients": [{"quantity": "200", "unit": "g", "name": "Pasta"}],
             "steps": ["Pasta kochen.", "Sauce mischen."],
             "notes": [],
+            "tags": ["pasta", "unknown"],
             "confidence": 0.8,
         }
 
@@ -563,7 +566,9 @@ class ExtractionTests(TestCase):
 
         source.refresh_from_db()
         self.assertEqual(source.status, RecipeSource.Status.DONE)
-        self.assertEqual(Recipe.objects.get(source=source).title, "Tomatenpasta")
+        recipe = Recipe.objects.get(source=source)
+        self.assertEqual(recipe.title, "Tomatenpasta")
+        self.assertEqual(list(recipe.tags.values_list("name", flat=True)), ["Pasta"])
         attempt = ExtractionAttempt.objects.get(source=source)
         self.assertEqual(attempt.status, ExtractionAttempt.Status.DONE)
         self.assertEqual(attempt.lm_studio_model, "test-model")
@@ -837,6 +842,26 @@ class LmStudioTests(TestCase):
         payload = lmstudio._parse_json_content(content)
 
         self.assertFalse(payload["is_recipe"])
+
+    def test_normalize_recipe_payload_includes_tag_strings(self):
+        payload = lmstudio._normalize_recipe_payload(
+            {
+                "is_recipe": True,
+                "title": "Pasta",
+                "tags": ["Pasta", "  Quick  ", ""],
+            }
+        )
+
+        self.assertEqual(payload["tags"], ["Pasta", "Quick"])
+
+    def test_build_prompt_includes_allowed_tags(self):
+        Tag.objects.create(name="Dessert")
+        Tag.objects.create(name="Quick")
+
+        prompt = lmstudio._build_prompt("Titel", "Kanal", "Transkript")
+
+        self.assertIn("Dessert", prompt)
+        self.assertIn("Quick", prompt)
 
     def test_extract_recipe_error_includes_response_excerpt(self):
         from unittest.mock import patch
