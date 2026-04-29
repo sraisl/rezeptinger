@@ -154,6 +154,48 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(source.title, "Neuer Titel")
         self.assertEqual(source.recipe.title, "Neues Rezept")
 
+    def test_recipe_detail_links_to_edit_view(self):
+        source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=edit-link")
+        recipe = Recipe.objects.create(source=source, title="Editierbares Rezept")
+
+        response = self.client.get(recipe.get_absolute_url())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("recipes:edit", kwargs={"pk": recipe.pk}))
+
+    def test_recipe_edit_updates_manual_fields(self):
+        source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=edit")
+        recipe = Recipe.objects.create(
+            source=source,
+            title="Alter Titel",
+            ingredients=[{"quantity": "200", "unit": "g", "name": "Pasta"}],
+            steps=["Kochen."],
+            notes=[],
+        )
+
+        response = self.client.post(
+            reverse("recipes:edit", kwargs={"pk": recipe.pk}),
+            data={
+                "title": "Neuer Titel",
+                "summary": "Manuell verbessert.",
+                "servings": "2 Portionen",
+                "prep_time": "5 Minuten",
+                "cook_time": "15 Minuten",
+                "total_time": "20 Minuten",
+                "ingredients_text": "200 g Pasta\nOlivenöl",
+                "steps_text": "Pasta kochen.\nAlles mischen.",
+                "notes_text": "Mit Parmesan servieren.",
+            },
+        )
+
+        self.assertRedirects(response, recipe.get_absolute_url())
+        recipe.refresh_from_db()
+        self.assertEqual(recipe.title, "Neuer Titel")
+        self.assertEqual(recipe.summary, "Manuell verbessert.")
+        self.assertEqual(recipe.ingredients[0]["name"], "200 g Pasta")
+        self.assertEqual(recipe.steps, ["Pasta kochen.", "Alles mischen."])
+        self.assertEqual(recipe.notes, ["Mit Parmesan servieren."])
+
 
 class ExtractionTests(TestCase):
     def test_process_source_creates_recipe(self):

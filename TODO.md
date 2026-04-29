@@ -3,7 +3,6 @@
 ## Next
 
 - [ ] Add proper background jobs instead of in-process threads, for example Huey, Django-Q2, or RQ.
-- [ ] Add manual recipe editing for title, summary, servings, ingredients, steps, and notes.
 - [ ] Add extraction history with retry timestamps, model name, prompt version, raw LM Studio response, and error details.
 
 ## Product
@@ -38,4 +37,3 @@
 - [ ] Add container image vulnerability scanning, for example Trivy.
 - [ ] Upload security findings as SARIF where useful.
 - [ ] Add a GitHub release flow where tags like `vX.Y.Z` publish GHCR images and release notes.
-

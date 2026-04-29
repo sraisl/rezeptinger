@@ -16,4 +16,5 @@ urlpatterns = [
     path("sources/<int:pk>/status/", views.source_status, name="source_status"),
     path("sources/<int:pk>/retry/", views.retry_source, name="retry_source"),
     path("recipes/<int:pk>/", views.detail, name="detail"),
+    path("recipes/<int:pk>/edit/", views.edit_recipe, name="edit"),
 ]

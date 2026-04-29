@@ -1,0 +1,78 @@
+{% extends "recipes/base.html" %}
+
+{% block title %}{{ recipe.title }} bearbeiten · Rezeptinger{% endblock %}
+
+{% block content %}
+  <section class="detail">
+    <div>
+      <a class="muted-link" href="{{ recipe.get_absolute_url }}">← Rezept</a>
+      <h1>Rezept bearbeiten.</h1>
+    </div>
+
+    <form class="edit-form" method="post">
+      {% csrf_token %}
+
+      <section class="tool-panel">
+        <h2>Basis</h2>
+        <div class="form-grid">
+          <label>
+            <span>{{ form.title.label }}</span>
+            {{ form.title }}
+            {{ form.title.errors }}
+          </label>
+          <label class="full-span">
+            <span>{{ form.summary.label }}</span>
+            {{ form.summary }}
+            {{ form.summary.errors }}
+          </label>
+          <label>
+            <span>{{ form.servings.label }}</span>
+            {{ form.servings }}
+            {{ form.servings.errors }}
+          </label>
+          <label>
+            <span>{{ form.prep_time.label }}</span>
+            {{ form.prep_time }}
+            {{ form.prep_time.errors }}
+          </label>
+          <label>
+            <span>{{ form.cook_time.label }}</span>
+            {{ form.cook_time }}
+            {{ form.cook_time.errors }}
+          </label>
+          <label>
+            <span>{{ form.total_time.label }}</span>
+            {{ form.total_time }}
+            {{ form.total_time.errors }}
+          </label>
+        </div>
+      </section>
+
+      <section class="tool-panel">
+        <h2>Inhalt</h2>
+        <div class="form-grid single-column">
+          <label>
+            <span>{{ form.ingredients_text.label }}</span>
+            {{ form.ingredients_text }}
+            {{ form.ingredients_text.errors }}
+          </label>
+          <label>
+            <span>{{ form.steps_text.label }}</span>
+            {{ form.steps_text }}
+            {{ form.steps_text.errors }}
+          </label>
+          <label>
+            <span>{{ form.notes_text.label }}</span>
+            {{ form.notes_text }}
+            {{ form.notes_text.errors }}
+          </label>
+        </div>
+      </section>
+
+      <div class="form-actions">
+        <button type="submit">Speichern</button>
+        <a class="muted-link" href="{{ recipe.get_absolute_url }}">Abbrechen</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

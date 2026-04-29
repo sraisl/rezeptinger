@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .forms import RecipeSourceForm
+from .forms import RecipeEditForm, RecipeSourceForm
 from .models import Recipe, RecipeSource
 from .services.extractor import enqueue_source_processing
 from .services.portable_data import export_catalog, import_catalog
@@ -79,6 +79,22 @@ def retry_source(request, pk):
 def detail(request, pk):
     recipe = get_object_or_404(Recipe.objects.select_related("source"), pk=pk)
     return render(request, "recipes/detail.html", {"recipe": recipe})
+
+
+@require_http_methods(["GET", "POST"])
+def edit_recipe(request, pk):
+    recipe = get_object_or_404(Recipe.objects.select_related("source"), pk=pk)
+
+    if request.method == "POST":
+        form = RecipeEditForm(request.POST, instance=recipe)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Rezept wurde gespeichert.")
+            return redirect(recipe)
+    else:
+        form = RecipeEditForm(instance=recipe)
+
+    return render(request, "recipes/edit.html", {"form": form, "recipe": recipe})
 
 
 def source_detail(request, pk):

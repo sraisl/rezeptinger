@@ -9,6 +9,7 @@
         <a class="muted-link" href="{% url 'recipes:index' %}">← Katalog</a>
         <h1>{{ recipe.title }}</h1>
         {% if recipe.summary %}<p>{{ recipe.summary }}</p>{% endif %}
+        <a class="button-link compact-button" href="{% url 'recipes:edit' recipe.pk %}">Bearbeiten</a>
       </div>
       {% if recipe.source.thumbnail_url %}
         <img src="{{ recipe.source.thumbnail_url }}" alt="">

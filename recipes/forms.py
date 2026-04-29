@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import RecipeSource
+from .models import Recipe, RecipeSource
 
 
 class RecipeSourceForm(forms.ModelForm):
@@ -16,3 +16,91 @@ class RecipeSourceForm(forms.ModelForm):
                 }
             )
         }
+
+
+class RecipeEditForm(forms.ModelForm):
+    ingredients_text = forms.CharField(
+        label="Zutaten",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 10}),
+    )
+    steps_text = forms.CharField(
+        label="Zubereitung",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 10}),
+    )
+    notes_text = forms.CharField(
+        label="Notizen",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 5}),
+    )
+
+    class Meta:
+        model = Recipe
+        fields = [
+            "title",
+            "summary",
+            "servings",
+            "prep_time",
+            "cook_time",
+            "total_time",
+        ]
+        labels = {
+            "title": "Titel",
+            "summary": "Kurzbeschreibung",
+            "servings": "Portionen",
+            "prep_time": "Vorbereitung",
+            "cook_time": "Kochen/Backen",
+            "total_time": "Gesamtzeit",
+        }
+        widgets = {
+            "summary": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["ingredients_text"].initial = ingredients_to_text(self.instance.ingredients)
+            self.fields["steps_text"].initial = lines_to_text(self.instance.steps)
+            self.fields["notes_text"].initial = lines_to_text(self.instance.notes)
+
+    def save(self, commit=True):
+        recipe = super().save(commit=False)
+        recipe.ingredients = text_to_ingredients(self.cleaned_data["ingredients_text"])
+        recipe.steps = text_to_lines(self.cleaned_data["steps_text"])
+        recipe.notes = text_to_lines(self.cleaned_data["notes_text"])
+        if commit:
+            recipe.save()
+        return recipe
+
+
+def ingredients_to_text(ingredients: list) -> str:
+    lines = []
+    for ingredient in ingredients:
+        if isinstance(ingredient, dict):
+            parts = [
+                str(ingredient.get("quantity", "")).strip(),
+                str(ingredient.get("unit", "")).strip(),
+                str(ingredient.get("name", "")).strip(),
+            ]
+            line = " ".join(part for part in parts if part)
+            note = str(ingredient.get("note", "")).strip()
+            lines.append(f"{line} ({note})" if note else line)
+        else:
+            lines.append(str(ingredient))
+    return "\n".join(line for line in lines if line)
+
+
+def lines_to_text(values: list) -> str:
+    return "\n".join(str(value) for value in values if str(value).strip())
+
+
+def text_to_lines(value: str) -> list[str]:
+    return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+def text_to_ingredients(value: str) -> list[dict[str, str]]:
+    ingredients = []
+    for line in text_to_lines(value):
+        ingredients.append({"quantity": "", "unit": "", "name": line, "note": ""})
+    return ingredients
