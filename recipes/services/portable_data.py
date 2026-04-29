@@ -5,11 +5,11 @@ from typing import Any
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
 
-from recipes.models import Recipe, RecipeSource
+from recipes.models import Recipe, RecipeSource, Tag
 
 from .ingredients import replace_recipe_ingredients
 
-EXPORT_VERSION = 1
+EXPORT_VERSION = 2
 
 
 def export_catalog() -> dict[str, Any]:
@@ -67,6 +67,7 @@ def import_catalog(payload: dict[str, Any]) -> dict[str, int]:
                 },
             )
             replace_recipe_ingredients(recipe, _list_value(recipe_payload.get("ingredients")))
+            _restore_recipe_tags(recipe, _list_value(recipe_payload.get("tags")))
             _restore_timestamps(recipe, recipe_payload)
             imported_recipes += 1
         elif hasattr(source, "recipe"):
@@ -106,6 +107,7 @@ def _recipe_to_payload(recipe: Recipe) -> dict[str, Any]:
         "ingredients": recipe.ingredient_payloads(),
         "steps": recipe.steps,
         "notes": recipe.notes,
+        "tags": list(recipe.tags.values_list("name", flat=True)),
         "confidence": recipe.confidence,
         "created_at": recipe.created_at.isoformat(),
         "updated_at": recipe.updated_at.isoformat(),
@@ -119,6 +121,17 @@ def _source_status(value: str | None) -> str:
 
 def _list_value(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
+
+
+def _restore_recipe_tags(recipe: Recipe, tag_names: list[Any]) -> None:
+    tags = []
+    for tag_name in tag_names:
+        name = str(tag_name).strip()
+        if not name:
+            continue
+        tag, _ = Tag.objects.get_or_create(name=name)
+        tags.append(tag)
+    recipe.tags.set(tags)
 
 
 def _restore_timestamps(instance, payload: dict[str, Any]) -> None:

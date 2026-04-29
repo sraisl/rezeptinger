@@ -207,7 +207,8 @@ class RecipeViewsTests(TestCase):
             url="https://www.youtube.com/watch?v=export",
             status=RecipeSource.Status.DONE,
         )
-        Recipe.objects.create(source=source, title="Export Pasta")
+        recipe = Recipe.objects.create(source=source, title="Export Pasta")
+        recipe.tags.add(Tag.objects.create(name="Pasta"), Tag.objects.create(name="Quick"))
 
         response = self.client.get(reverse("recipes:data_export"))
 
@@ -215,7 +216,9 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response["Content-Type"], "application/json")
         data = json_loads(response.content)
         self.assertEqual(data["format"], "rezeptinger.catalog")
+        self.assertEqual(data["version"], 2)
         self.assertEqual(data["sources"][0]["recipe"]["title"], "Export Pasta")
+        self.assertEqual(data["sources"][0]["recipe"]["tags"], ["Pasta", "Quick"])
 
     def test_data_import_creates_source_and_recipe_from_json(self):
         payload = _catalog_payload(
@@ -235,6 +238,44 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.json()["imported"], {"sources": 1, "recipes": 1})
         source = RecipeSource.objects.get(url="https://www.youtube.com/watch?v=import")
         self.assertEqual(source.recipe.title, "Import Pasta")
+
+    def test_data_import_restores_recipe_tags(self):
+        payload = _catalog_payload(
+            url="https://www.youtube.com/watch?v=import-tags",
+            title="Import Video",
+            recipe_title="Import Dessert",
+        )
+        payload["version"] = 2
+        payload["sources"][0]["recipe"]["tags"] = ["Dessert", "Quick"]
+
+        response = self.client.post(
+            reverse("recipes:data_import"),
+            data=payload,
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        recipe = Recipe.objects.get(source__url="https://www.youtube.com/watch?v=import-tags")
+        self.assertEqual(set(recipe.tags.values_list("name", flat=True)), {"Dessert", "Quick"})
+
+    def test_data_import_accepts_version_one_without_tags(self):
+        payload = _catalog_payload(
+            url="https://www.youtube.com/watch?v=import-v1",
+            title="Import Video",
+            recipe_title="Import V1",
+        )
+
+        response = self.client.post(
+            reverse("recipes:data_import"),
+            data=payload,
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        recipe = Recipe.objects.get(source__url="https://www.youtube.com/watch?v=import-v1")
+        self.assertEqual(list(recipe.tags.all()), [])
 
     def test_data_import_updates_existing_source_by_url(self):
         source = RecipeSource.objects.create(
