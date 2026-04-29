@@ -81,6 +81,8 @@ mise exec uv -- uv run python manage.py test
 - Extraction is queued through Huey. Keep web and worker behavior compatible with local SQLite.
 - If adding external dependencies, put them in `pyproject.toml` and sync with `uv`.
 - Keep import/export backwards-friendly by bumping the export `version` if the JSON format changes.
+- When completing a task from `TODO.md`, update `TODO.md` in the same change: move completed
+  items to `Done` and promote the next actionable item into `Next`.
 
 ## LM Studio
 
