@@ -14,6 +14,7 @@ from recipes.models import (
 from recipes.services import lmstudio
 from recipes.services.extractor import process_source
 from recipes.services.lmstudio import RecipeExtractionResult
+from recipes.services.portable_data import migrate_import_payload
 from recipes.services.youtube import YouTubeRateLimited, YouTubeVideo, fetch_video
 
 
@@ -276,6 +277,32 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         recipe = Recipe.objects.get(source__url="https://www.youtube.com/watch?v=import-v1")
         self.assertEqual(list(recipe.tags.all()), [])
+
+    def test_import_payload_migrates_version_one_to_current_shape(self):
+        payload = _catalog_payload(
+            url="https://www.youtube.com/watch?v=migrate-v1",
+            title="Import Video",
+            recipe_title="Import V1",
+        )
+
+        migrated = migrate_import_payload(payload)
+
+        self.assertEqual(migrated["version"], 2)
+        self.assertEqual(migrated["sources"][0]["recipe"]["tags"], [])
+
+    def test_import_payload_leaves_version_two_tags_unchanged(self):
+        payload = _catalog_payload(
+            url="https://www.youtube.com/watch?v=migrate-v2",
+            title="Import Video",
+            recipe_title="Import V2",
+        )
+        payload["version"] = 2
+        payload["sources"][0]["recipe"]["tags"] = ["Dessert"]
+
+        migrated = migrate_import_payload(payload)
+
+        self.assertEqual(migrated["version"], 2)
+        self.assertEqual(migrated["sources"][0]["recipe"]["tags"], ["Dessert"])
 
     def test_data_import_updates_existing_source_by_url(self):
         source = RecipeSource.objects.create(

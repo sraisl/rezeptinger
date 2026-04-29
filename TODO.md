@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add export migrations and optional compressed exports to import/export.
+- [ ] Add optional compressed exports and imports.
 
 ## Product
 
@@ -30,6 +30,7 @@
 
 ## Done
 
+- [x] Add import payload migrations that normalize older export versions to the current shape.
 - [x] Add schema checks for import format, supported versions, and source list shape.
 - [x] Export and import recipe tags in catalog JSON version 2 while keeping version 1 imports compatible.
 - [x] Let AI extraction assign existing recipe tags without creating new tags automatically.

@@ -23,6 +23,7 @@ def export_catalog() -> dict[str, Any]:
 
 @transaction.atomic
 def import_catalog(payload: dict[str, Any]) -> dict[str, int]:
+    payload = migrate_import_payload(payload)
     sources = validate_import_payload(payload)
 
     imported_sources = 0
@@ -98,6 +99,39 @@ def validate_import_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
         raise ValueError("Der Rezeptinger-Export enthält keine gültige Quellenliste.")
 
     return sources
+
+
+def migrate_import_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    validate_import_payload(payload)
+    version = payload["version"]
+    if version == EXPORT_VERSION:
+        return payload
+
+    migrated = {
+        **payload,
+        "version": EXPORT_VERSION,
+        "sources": [
+            _migrate_source_payload(source_payload) for source_payload in payload["sources"]
+        ],
+    }
+    return migrated
+
+
+def _migrate_source_payload(source_payload: Any) -> Any:
+    if not isinstance(source_payload, dict):
+        return source_payload
+
+    recipe_payload = source_payload.get("recipe")
+    if not isinstance(recipe_payload, dict):
+        return source_payload
+
+    return {
+        **source_payload,
+        "recipe": {
+            **recipe_payload,
+            "tags": _list_value(recipe_payload.get("tags")),
+        },
+    }
 
 
 def _source_to_payload(source: RecipeSource) -> dict[str, Any]:
