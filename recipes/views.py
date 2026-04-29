@@ -8,7 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .forms import RecipeEditForm, RecipeSourceForm
-from .models import Recipe, RecipeSource
+from .models import Recipe, RecipeSource, Tag
 from .services.duplicates import find_duplicate_video_recipe, find_similar_recipes
 from .services.extractor import enqueue_source_processing
 from .services.portable_data import export_catalog, import_catalog
@@ -19,7 +19,18 @@ from .services.search import search_recipes
 
 def index(request):
     query = request.GET.get("q", "").strip()
-    recipes = search_recipes(query) if query else Recipe.objects.select_related("source")
+    tag_slug = request.GET.get("tag", "").strip()
+    selected_tag = None
+    recipes = (
+        search_recipes(query)
+        if query
+        else Recipe.objects.select_related("source").prefetch_related("tags")
+    )
+    if tag_slug:
+        selected_tag = get_object_or_404(Tag, slug=tag_slug)
+        recipes = recipes.filter(tags=selected_tag)
+    recipes = recipes.prefetch_related("tags")
+    tags = Tag.objects.filter(recipes__isnull=False).distinct()
     sources = RecipeSource.objects.exclude(status=RecipeSource.Status.DONE)[:8]
 
     return render(
@@ -30,6 +41,8 @@ def index(request):
             "recipes": recipes,
             "sources": sources,
             "query": query,
+            "tags": tags,
+            "selected_tag": selected_tag,
         },
     )
 

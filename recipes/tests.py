@@ -246,6 +246,33 @@ class RecipeViewsTests(TestCase):
         self.assertContains(response, "Pasta")
         self.assertContains(response, "Quick")
 
+    def test_index_shows_recipe_tags(self):
+        source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=index-tags")
+        recipe = Recipe.objects.create(source=source, title="Tag Kartenrezept")
+        recipe.tags.add(Tag.objects.create(name="Pasta"))
+
+        response = self.client.get(reverse("recipes:index"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tag Kartenrezept")
+        self.assertContains(response, "Pasta")
+
+    def test_index_filters_by_tag(self):
+        pasta = Tag.objects.create(name="Pasta")
+        dessert = Tag.objects.create(name="Dessert")
+        pasta_source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=pasta")
+        dessert_source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=dessert")
+        pasta_recipe = Recipe.objects.create(source=pasta_source, title="Tomatenpasta")
+        dessert_recipe = Recipe.objects.create(source=dessert_source, title="Cheesecake")
+        pasta_recipe.tags.add(pasta)
+        dessert_recipe.tags.add(dessert)
+
+        response = self.client.get(reverse("recipes:index"), {"tag": pasta.slug})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tomatenpasta")
+        self.assertNotContains(response, "Cheesecake")
+
     def test_recipe_detail_shows_possible_duplicates(self):
         first_source = RecipeSource.objects.create(
             url="https://www.youtube.com/watch?v=duplicate-a",
@@ -397,6 +424,36 @@ class RecipeViewsTests(TestCase):
         self.assertRedirects(response, recipe.get_absolute_url())
         response = self.client.get(reverse("recipes:index"), {"q": "Sardellen"})
         self.assertContains(response, "Neuer Titel")
+
+    def test_index_combines_search_and_tag_filter(self):
+        pasta = Tag.objects.create(name="Pasta")
+        dessert = Tag.objects.create(name="Dessert")
+        pasta_source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=search-tag-pasta",
+            status=RecipeSource.Status.DONE,
+        )
+        dessert_source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=search-tag-dessert",
+            status=RecipeSource.Status.DONE,
+        )
+        pasta_recipe = Recipe.objects.create(
+            source=pasta_source,
+            title="Sommerpasta",
+            ingredients=[{"name": "Tomaten"}],
+        )
+        dessert_recipe = Recipe.objects.create(
+            source=dessert_source,
+            title="Tomaten Dessert",
+            ingredients=[{"name": "Tomaten"}],
+        )
+        pasta_recipe.tags.add(pasta)
+        dessert_recipe.tags.add(dessert)
+
+        response = self.client.get(reverse("recipes:index"), {"q": "Tomaten", "tag": pasta.slug})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sommerpasta")
+        self.assertNotContains(response, "Tomaten Dessert")
 
     def test_tag_generates_slug_from_name(self):
         tag = Tag.objects.create(name="Meal Prep")

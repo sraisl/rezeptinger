@@ -2,12 +2,11 @@
 
 ## Next
 
-- [ ] Add tag filtering/search on the catalog page.
+- [ ] Add a small bookmarklet or browser extension to send the current YouTube URL to Rezeptinger.
 
 ## Product
 
 - [ ] Add AI-suggested tags and categories such as pasta, dessert, vegetarian, quick, and meal prep.
-- [ ] Add a small bookmarklet or browser extension to send the current YouTube URL to Rezeptinger.
 
 ## Search And Data
 
@@ -35,6 +34,7 @@
 
 ## Done
 
+- [x] Add tag filtering/search on the catalog page.
 - [x] Add manual tag selection to the regular recipe edit page.
 - [x] Add manual recipe tags editable in Django admin and visible on recipe detail pages.
 - [x] Show LM Studio connection status and available `/v1/models` entries in admin App settings.

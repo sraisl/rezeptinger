@@ -21,12 +21,27 @@
 
   <section class="search-row">
     <form method="get" class="search-form">
+      {% if selected_tag %}
+        <input type="hidden" name="tag" value="{{ selected_tag.slug }}">
+      {% endif %}
       <input name="q" value="{{ query }}" placeholder="Katalog durchsuchen">
       <button type="submit">Suchen</button>
-      {% if query %}
+      {% if query or selected_tag %}
         <a class="muted-link" href="{% url 'recipes:index' %}">Zurücksetzen</a>
       {% endif %}
     </form>
+    {% if tags %}
+      <div class="catalog-tags" aria-label="Tags">
+        {% for tag in tags %}
+          <a
+            class="tag-pill {% if selected_tag == tag %}tag-pill-active{% endif %}"
+            href="{% url 'recipes:index' %}?tag={{ tag.slug }}{% if query %}&q={{ query|urlencode }}{% endif %}"
+          >
+            {{ tag.name }}
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
   </section>
 
   {% if sources %}
@@ -84,6 +99,13 @@
             <div class="recipe-card-body">
               <span>{{ recipe.source.channel|default:"YouTube" }}</span>
               <h3>{{ recipe.title }}</h3>
+              {% if recipe.tags.exists %}
+                <div class="card-tags">
+                  {% for tag in recipe.tags.all %}
+                    <span class="tag-pill">{{ tag.name }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
               {% if recipe.summary %}
                 <p>{{ recipe.summary|truncatechars:150 }}</p>
               {% endif %}

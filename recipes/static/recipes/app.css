@@ -346,6 +346,25 @@ button:hover {
   margin-bottom: 34px;
 }
 
+.catalog-tags,
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.catalog-tags {
+  margin-top: 12px;
+}
+
+.card-tags {
+  margin: 8px 0 10px;
+}
+
+.catalog-tags a {
+  text-decoration: none;
+}
+
 .section-title {
   align-items: center;
   display: flex;
@@ -421,6 +440,12 @@ button:hover {
   font-size: 13px;
   font-weight: 800;
   padding: 5px 10px;
+}
+
+.tag-pill-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .source-grid {
