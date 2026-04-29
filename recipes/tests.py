@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -738,6 +739,52 @@ class LmStudioTests(TestCase):
         self.assertEqual(request_payload["messages"][0]["content"], "Custom system prompt.")
         self.assertIn("a" * 1000, request_payload["messages"][1]["content"])
         self.assertNotIn("TRUNCATED", request_payload["messages"][1]["content"])
+
+    def test_connection_status_lists_loaded_models(self):
+        from unittest.mock import patch
+
+        response = _FakeResponse(
+            {
+                "data": [
+                    {"id": "loaded-model"},
+                    {"id": "text-embedding-model"},
+                ]
+            }
+        )
+
+        with patch("recipes.services.lmstudio.httpx.get", return_value=response):
+            status = lmstudio.connection_status("http://localhost:1234/v1")
+
+        self.assertTrue(status.is_available)
+        self.assertEqual(status.model_ids, ["loaded-model", "text-embedding-model"])
+
+    def test_admin_app_settings_shows_lmstudio_status(self):
+        from unittest.mock import patch
+
+        app_settings = AppSettings.objects.create(
+            pk=1,
+            lm_studio_base_url="http://localhost:1234/v1",
+        )
+        user = get_user_model().objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+        )
+        status = lmstudio.LmStudioConnectionStatus(
+            base_url="http://localhost:1234/v1",
+            is_available=True,
+            model_ids=["loaded-model"],
+        )
+        self.client.force_login(user)
+
+        with patch("recipes.admin.lm_studio_connection_status", return_value=status):
+            response = self.client.get(
+                reverse("admin:recipes_appsettings_change", kwargs={"object_id": app_settings.pk})
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reachable")
+        self.assertContains(response, "loaded-model")
 
 
 class _FakeResponse:

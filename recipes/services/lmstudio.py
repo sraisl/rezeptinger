@@ -33,6 +33,14 @@ class RecipeExtractionResult:
     raw_response: str
 
 
+@dataclass(frozen=True)
+class LmStudioConnectionStatus:
+    base_url: str
+    is_available: bool
+    model_ids: list[str]
+    error_message: str = ""
+
+
 PROMPT_VERSION = "2026-04-29"
 
 SYSTEM_PROMPT = """
@@ -46,6 +54,29 @@ Schätze keine exakten Mengen, wenn sie nicht genannt werden.
 
 def extract_recipe(video_title: str, channel: str, transcript: str) -> dict[str, Any]:
     return extract_recipe_result(video_title, channel, transcript).payload
+
+
+def connection_status(base_url: str | None = None) -> LmStudioConnectionStatus:
+    resolved_base_url = (base_url or lm_studio_base_url()).rstrip("/")
+
+    try:
+        response = httpx.get(f"{resolved_base_url}/models", timeout=5)
+        response.raise_for_status()
+        models = response.json().get("data", [])
+    except (httpx.HTTPError, TypeError, ValueError) as exc:
+        return LmStudioConnectionStatus(
+            base_url=resolved_base_url,
+            is_available=False,
+            model_ids=[],
+            error_message=str(exc),
+        )
+
+    model_ids = [model.get("id") for model in models if isinstance(model, dict) and model.get("id")]
+    return LmStudioConnectionStatus(
+        base_url=resolved_base_url,
+        is_available=True,
+        model_ids=model_ids,
+    )
 
 
 def extract_recipe_result(

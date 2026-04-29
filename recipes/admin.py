@@ -1,6 +1,8 @@
 from django.contrib import admin
+from django.utils.html import format_html, format_html_join
 
 from .models import AppSettings, ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
+from .services.lmstudio import connection_status as lm_studio_connection_status
 
 
 class RecipeIngredientInline(admin.TabularInline):
@@ -11,9 +13,54 @@ class RecipeIngredientInline(admin.TabularInline):
 @admin.register(AppSettings)
 class AppSettingsAdmin(admin.ModelAdmin):
     list_display = ("lm_studio_base_url", "lm_studio_model", "transcript_limit", "updated_at")
+    readonly_fields = ("lm_studio_status",)
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "lm_studio_base_url",
+                    "lm_studio_model",
+                    "transcript_limit",
+                    "language_preference",
+                    "extraction_prompt",
+                )
+            },
+        ),
+        ("LM Studio status", {"fields": ("lm_studio_status",)}),
+    )
 
     def has_add_permission(self, request):
         return not AppSettings.objects.exists()
+
+    @admin.display(description="Connection and loaded models")
+    def lm_studio_status(self, obj):
+        status = lm_studio_connection_status(obj.lm_studio_base_url)
+        if not status.is_available:
+            return format_html(
+                "<strong style='color: #a92727;'>Not reachable</strong><br>"
+                "<code>{}</code><br>{}",
+                status.base_url,
+                status.error_message,
+            )
+
+        if not status.model_ids:
+            return format_html(
+                "<strong style='color: #a34815;'>Reachable, no loaded models</strong><br>"
+                "<code>{}</code>",
+                status.base_url,
+            )
+
+        return format_html(
+            "<strong style='color: #164e42;'>Reachable</strong><br>"
+            "<code>{}</code><ul>{}</ul>",
+            status.base_url,
+            format_html_join(
+                "",
+                "<li><code>{}</code></li>",
+                ((model_id,) for model_id in status.model_ids),
+            ),
+        )
 
 
 @admin.register(RecipeSource)
