@@ -14,4 +14,3 @@ class RecipeSourceAdmin(admin.ModelAdmin):
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ("title", "servings", "total_time", "confidence", "created_at")
     search_fields = ("title", "summary")
-

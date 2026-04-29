@@ -1,0 +1,65 @@
+name: Quality
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-quality:
+    name: Python lint, tests, and dependency audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen --python 3.12
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Django system checks
+        run: uv run python manage.py check
+
+      - name: Django tests
+        run: uv run python manage.py test
+
+      - name: Export locked production dependencies
+        run: uv export --frozen --no-dev --format requirements-txt --output-file requirements-audit.txt
+
+      - name: Dependency security audit
+        run: uvx pip-audit -r requirements-audit.txt --strict
+
+  semgrep:
+    name: Semgrep security scan
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Run Semgrep CE
+        run: semgrep scan --config auto --error

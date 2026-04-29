@@ -127,4 +127,3 @@ def _restore_timestamps(instance, payload: dict[str, Any]) -> None:
         type(instance).objects.filter(pk=instance.pk).update(**updates)
         for field, value in updates.items():
             setattr(instance, field, value)
-

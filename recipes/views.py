@@ -173,9 +173,8 @@ def _import_payload(request) -> dict:
 
 
 def _wants_json(request) -> bool:
-    return (
-        request.content_type == "application/json"
-        or "application/json" in request.headers.get("Accept", "")
+    return request.content_type == "application/json" or "application/json" in request.headers.get(
+        "Accept", ""
     )
 
 

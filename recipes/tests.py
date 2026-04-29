@@ -245,8 +245,7 @@ class LmStudioTests(TestCase):
                     {
                         "message": {
                             "content": (
-                                '{"is_recipe": false, "reason": "Kein Rezept.", '
-                                '"confidence": 0.4}'
+                                '{"is_recipe": false, "reason": "Kein Rezept.", "confidence": 0.4}'
                             )
                         }
                     }

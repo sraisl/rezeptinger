@@ -16,4 +16,3 @@ class RecipeSourceForm(forms.ModelForm):
                 }
             )
         }
-

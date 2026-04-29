@@ -128,4 +128,3 @@ def _normalize_transcript(text: str) -> str:
     text = unescape(text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
-
