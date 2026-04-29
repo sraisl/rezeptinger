@@ -34,6 +34,12 @@
           {{ source.error_message }}
         {% endif %}
       </p>
+      {% if duplicate_recipe %}
+        <p class="status-text">
+          Bereits vorhanden:
+          <a href="{{ duplicate_recipe.get_absolute_url }}">{{ duplicate_recipe.title }}</a>
+        </p>
+      {% endif %}
       {% if source.status == "failed" %}
         <form id="retry-form" action="{% url 'recipes:retry_source' source.pk %}" method="post">
           {% csrf_token %}

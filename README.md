@@ -116,6 +116,7 @@ docker stop rezeptinger-local
 LM_STUDIO_BASE_URL=http://host.docker.internal:1234/v1
 LM_STUDIO_MODEL=google/gemma-4-e2b
 SQLITE_DATABASE_PATH=/data/db.sqlite3
+YT_DLP_COOKIES_FILE=
 ```
 
 Wenn du im Container ein anderes Modell nutzen willst, setze `LM_STUDIO_MODEL` beim Start explizit mit `-e LM_STUDIO_MODEL=...`.
@@ -160,6 +161,14 @@ HUEY_IMMEDIATE=1 uv run python manage.py test
 ## Hinweise
 
 Die App nutzt `yt-dlp`, um Metadaten und Untertitel/Auto-Untertitel zu lesen. Videos ohne nutzbares Transkript können derzeit nicht zuverlässig ausgewertet werden.
+
+Wenn YouTube `HTTP 429: Too Many Requests` meldet, blockt YouTube die aktuelle Abrufrate oder IP temporär. Warte dann etwas und versuche es erneut. Falls das häufiger passiert, kannst du yt-dlp mit einer Cookie-Datei aus deinem Browser starten:
+
+```bash
+export YT_DLP_COOKIES_FILE=/pfad/zu/cookies.txt
+```
+
+Im Docker-Setup muss die Datei zusätzlich in den Container gemountet und der Container mit `-e YT_DLP_COOKIES_FILE=/data/cookies.txt` gestartet werden.
 
 ## Headless API
 

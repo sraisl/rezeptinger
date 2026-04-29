@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from html import unescape
+from urllib.error import HTTPError
 
 from yt_dlp import YoutubeDL
 
 
 class TranscriptUnavailable(Exception):
+    pass
+
+
+class YouTubeRateLimited(Exception):
     pass
 
 
@@ -23,16 +29,17 @@ class YouTubeVideo:
 
 
 def fetch_video(url: str) -> YouTubeVideo:
-    options = {
-        "quiet": True,
-        "skip_download": True,
-        "writesubtitles": False,
-        "writeautomaticsub": False,
-        "extract_flat": False,
-    }
+    options = _youtube_options(
+        {
+            "extract_flat": False,
+        }
+    )
 
-    with YoutubeDL(options) as ydl:
-        info = ydl.extract_info(url, download=False)
+    try:
+        with YoutubeDL(options) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except Exception as exc:
+        raise _youtube_error(exc) from exc
 
     transcript = _extract_transcript(info)
     if not transcript:
@@ -50,15 +57,58 @@ def fetch_video(url: str) -> YouTubeVideo:
     )
 
 
+def _youtube_options(extra: dict | None = None) -> dict:
+    options = {
+        "quiet": True,
+        "skip_download": True,
+        "writesubtitles": False,
+        "writeautomaticsub": False,
+        "noplaylist": True,
+    }
+    cookies_file = os.environ.get("YT_DLP_COOKIES_FILE", "").strip()
+    if cookies_file:
+        options["cookiefile"] = cookies_file
+    if extra:
+        options.update(extra)
+    return options
+
+
+def _youtube_error(exc: Exception) -> Exception:
+    if _is_rate_limit(exc):
+        return YouTubeRateLimited(
+            "Der YouTube-Abruf wurde mit HTTP 429 (Too Many Requests) abgelehnt. "
+            "Warte etwas und versuche es erneut. Falls das häufiger passiert, nutze eine "
+            "yt-dlp-Cookie-Datei über YT_DLP_COOKIES_FILE."
+        )
+    return TranscriptUnavailable(f"YouTube konnte nicht gelesen werden: {exc}")
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    if isinstance(exc, HTTPError) and exc.code == 429:
+        return True
+    message = str(exc).lower()
+    return "429" in message or "too many requests" in message
+
+
 def _extract_transcript(info: dict) -> str:
     subtitles = info.get("subtitles") or {}
     auto_captions = info.get("automatic_captions") or {}
+    rate_limited = False
 
     for collection in (subtitles, auto_captions):
         for language in _preferred_languages(collection):
-            text = _transcript_from_tracks(collection.get(language) or [])
+            text, track_rate_limited = _transcript_from_tracks(collection.get(language) or [])
+            rate_limited = rate_limited or track_rate_limited
             if text:
                 return text
+
+    if rate_limited:
+        raise YouTubeRateLimited(
+            "Der YouTube-Untertitel-Endpunkt /api/timedtext wurde mit HTTP 429 "
+            "(Too Many Requests) abgelehnt. Metadaten konnten gelesen werden, aber das "
+            "Transkript nicht. Warte etwas und versuche es erneut oder nutze "
+            "YT_DLP_COOKIES_FILE."
+        )
 
     return ""
 
@@ -71,21 +121,31 @@ def _preferred_languages(collection: dict) -> list[str]:
     return ordered
 
 
-def _transcript_from_tracks(tracks: list[dict]) -> str:
+def _transcript_from_tracks(tracks: list[dict]) -> tuple[str, bool]:
+    rate_limited = False
     for extension in ("json3", "vtt", "srv3", "ttml"):
         for track in tracks:
             if track.get("ext") != extension or not track.get("url"):
                 continue
-            text = _download_track(track["url"], extension)
+            try:
+                text = _download_track(track["url"], extension)
+            except YouTubeRateLimited:
+                rate_limited = True
+                continue
             if text:
-                return text
-    return ""
+                return text, rate_limited
+    return "", rate_limited
 
 
 def _download_track(url: str, extension: str) -> str:
-    with YoutubeDL({"quiet": True}) as ydl:
-        response = ydl.urlopen(url)
-        raw = response.read().decode("utf-8", errors="replace")
+    try:
+        with YoutubeDL(_youtube_options()) as ydl:
+            response = ydl.urlopen(url)
+            raw = response.read().decode("utf-8", errors="replace")
+    except Exception as exc:
+        if _is_rate_limit(exc):
+            raise YouTubeRateLimited("YouTube timedtext HTTP 429") from exc
+        raise
 
     if extension == "json3":
         return _parse_json3(raw)

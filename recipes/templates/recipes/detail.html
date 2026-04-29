@@ -24,6 +24,20 @@
       <div><span>KI-Sicherheit</span><strong>{{ recipe.confidence|floatformat:2 }}</strong></div>
     </div>
 
+    {% if duplicate_candidates %}
+      <section class="duplicate-panel">
+        <h2>Mögliche Duplikate</h2>
+        <ul>
+          {% for candidate in duplicate_candidates %}
+            <li>
+              <a href="{{ candidate.recipe.get_absolute_url }}">{{ candidate.recipe.title }}</a>
+              <span>{{ candidate.reasons|join:", " }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
     <div class="detail-grid">
       <section>
         <h2>Zutaten</h2>

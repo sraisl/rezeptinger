@@ -5,7 +5,7 @@ from django.utils import timezone
 from recipes.models import Recipe, RecipeIngredient, RecipeSource
 from recipes.services import lmstudio
 from recipes.services.extractor import process_source
-from recipes.services.youtube import YouTubeVideo
+from recipes.services.youtube import YouTubeRateLimited, YouTubeVideo, fetch_video
 
 
 class RecipeViewsTests(TestCase):
@@ -226,6 +226,42 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("recipes:edit", kwargs={"pk": recipe.pk}))
 
+    def test_recipe_detail_shows_possible_duplicates(self):
+        first_source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=duplicate-a",
+            status=RecipeSource.Status.DONE,
+        )
+        Recipe.objects.create(
+            source=first_source,
+            title="Cremige Tomatenpasta",
+            ingredients=[
+                {"name": "Pasta"},
+                {"name": "Tomaten"},
+                {"name": "Sahne"},
+                {"name": "Parmesan"},
+            ],
+        )
+        second_source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=duplicate-b",
+            status=RecipeSource.Status.DONE,
+        )
+        recipe = Recipe.objects.create(
+            source=second_source,
+            title="Cremige Tomaten Pasta",
+            ingredients=[
+                {"name": "Pasta"},
+                {"name": "Tomaten"},
+                {"name": "Sahne"},
+                {"name": "Parmesan"},
+            ],
+        )
+
+        response = self.client.get(recipe.get_absolute_url())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Mögliche Duplikate")
+        self.assertContains(response, "Cremige Tomatenpasta")
+
     def test_recipe_edit_updates_manual_fields(self):
         source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=edit")
         recipe = Recipe.objects.create(
@@ -395,6 +431,87 @@ class ExtractionTests(TestCase):
         source.refresh_from_db()
         self.assertEqual(source.status, RecipeSource.Status.FAILED)
         self.assertFalse(Recipe.objects.filter(source=source).exists())
+
+    def test_process_source_marks_repeated_video_as_failed_without_extraction(self):
+        existing_source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=existing",
+            video_id="same-video",
+            status=RecipeSource.Status.DONE,
+        )
+        Recipe.objects.create(source=existing_source, title="Schon vorhanden")
+        source = RecipeSource.objects.create(url="https://youtu.be/same-video")
+        video = YouTubeVideo(
+            url=source.url,
+            video_id="same-video",
+            title="Dasselbe Video",
+            channel="Test Kitchen",
+            thumbnail_url="",
+            transcript="Wir kochen Pasta.",
+        )
+
+        from unittest.mock import patch
+
+        with (
+            patch("recipes.services.extractor.fetch_video", return_value=video),
+            patch("recipes.services.extractor.extract_recipe") as extract,
+        ):
+            process_source(source)
+
+        source.refresh_from_db()
+        self.assertEqual(source.status, RecipeSource.Status.FAILED)
+        self.assertIn("bereits als Rezept", source.error_message)
+        extract.assert_not_called()
+
+
+class YouTubeTests(TestCase):
+    def test_fetch_video_maps_rate_limit_to_friendly_error(self):
+        from unittest.mock import patch
+
+        class FakeYoutubeDL:
+            def __init__(self, options):
+                self.options = options
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            def extract_info(self, url, download=False):
+                raise RuntimeError("HTTP Error 429: Too Many Requests")
+
+        with patch("recipes.services.youtube.YoutubeDL", FakeYoutubeDL):
+            with self.assertRaises(YouTubeRateLimited) as error:
+                fetch_video("https://www.youtube.com/watch?v=rate-limit")
+
+        self.assertIn("HTTP 429", str(error.exception))
+        self.assertIn("YT_DLP_COOKIES_FILE", str(error.exception))
+
+    def test_extract_transcript_reports_timedtext_rate_limit(self):
+        from unittest.mock import patch
+
+        from recipes.services.youtube import _extract_transcript
+
+        info = {
+            "automatic_captions": {
+                "de": [
+                    {
+                        "ext": "json3",
+                        "url": "https://www.youtube.com/api/timedtext?v=test",
+                    }
+                ]
+            }
+        }
+
+        with patch(
+            "recipes.services.youtube._download_track",
+            side_effect=YouTubeRateLimited("HTTP Error 429: Too Many Requests"),
+        ):
+            with self.assertRaises(YouTubeRateLimited) as error:
+                _extract_transcript(info)
+
+        self.assertIn("/api/timedtext", str(error.exception))
+        self.assertIn("Metadaten konnten gelesen werden", str(error.exception))
 
 
 class LmStudioTests(TestCase):

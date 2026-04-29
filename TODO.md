@@ -9,7 +9,6 @@
 - [ ] Add an in-app settings page for LM Studio base URL, selected model/default model, transcript limit, language preference, and extraction prompt.
 - [ ] Show LM Studio connection status and available `/v1/models` entries in the app.
 - [ ] Add tags and categories such as pasta, dessert, vegetarian, quick, and meal prep.
-- [ ] Add duplicate detection for repeated videos, similar recipe titles, or near-identical ingredient lists.
 - [ ] Add a small bookmarklet or browser extension to send the current YouTube URL to Rezeptinger.
 
 ## Search And Data

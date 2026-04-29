@@ -4,9 +4,10 @@ from django.db import transaction
 
 from recipes.models import Recipe, RecipeSource
 
+from .duplicates import find_duplicate_video_recipe
 from .ingredients import replace_recipe_ingredients
 from .lmstudio import RecipeExtractionError, extract_recipe
-from .youtube import TranscriptUnavailable, fetch_video
+from .youtube import TranscriptUnavailable, YouTubeRateLimited, fetch_video
 
 
 def enqueue_source_processing(source: RecipeSource) -> None:
@@ -34,6 +35,22 @@ def process_source(source: RecipeSource) -> RecipeSource:
         video = fetch_video(source.url)
         source.refresh_from_db()
         if source.status == RecipeSource.Status.CANCELLED:
+            return source
+
+        duplicate_recipe = find_duplicate_video_recipe(video.video_id, source.pk)
+        if duplicate_recipe:
+            source.title = video.title
+            source.channel = video.channel
+            source.video_id = video.video_id
+            source.thumbnail_url = video.thumbnail_url
+            source.transcript = video.transcript
+            source.status = RecipeSource.Status.FAILED
+            source.error_message = (
+                "Dieses Video ist bereits als Rezept "
+                f'"{duplicate_recipe.title}" im Katalog gespeichert.'
+            )
+            source.queue_task_id = ""
+            source.save()
             return source
 
         payload = extract_recipe(video.title, video.channel, video.transcript)
@@ -76,7 +93,7 @@ def process_source(source: RecipeSource) -> RecipeSource:
             source.queue_task_id = ""
             source.save()
 
-    except (TranscriptUnavailable, RecipeExtractionError, Exception) as exc:
+    except (TranscriptUnavailable, YouTubeRateLimited, RecipeExtractionError, Exception) as exc:
         source.refresh_from_db()
         if source.status == RecipeSource.Status.CANCELLED:
             return source

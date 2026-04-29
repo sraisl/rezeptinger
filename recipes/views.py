@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 
 from .forms import RecipeEditForm, RecipeSourceForm
 from .models import Recipe, RecipeSource
+from .services.duplicates import find_duplicate_video_recipe, find_similar_recipes
 from .services.extractor import enqueue_source_processing
 from .services.portable_data import export_catalog, import_catalog
 from .services.queue import queue_status as get_queue_status
@@ -98,7 +99,14 @@ def delete_source(request, pk):
 
 def detail(request, pk):
     recipe = get_object_or_404(Recipe.objects.select_related("source"), pk=pk)
-    return render(request, "recipes/detail.html", {"recipe": recipe})
+    return render(
+        request,
+        "recipes/detail.html",
+        {
+            "recipe": recipe,
+            "duplicate_candidates": find_similar_recipes(recipe),
+        },
+    )
 
 
 @require_http_methods(["GET", "POST"])
@@ -119,7 +127,12 @@ def edit_recipe(request, pk):
 
 def source_detail(request, pk):
     source = get_object_or_404(RecipeSource, pk=pk)
-    return render(request, "recipes/source_detail.html", {"source": source})
+    duplicate_recipe = find_duplicate_video_recipe(source.video_id, source.pk)
+    return render(
+        request,
+        "recipes/source_detail.html",
+        {"source": source, "duplicate_recipe": duplicate_recipe},
+    )
 
 
 def source_status(request, pk):
@@ -233,9 +246,12 @@ def _wants_json(request) -> bool:
 def _source_status_payload(request, source: RecipeSource) -> dict:
     recipe_url = ""
     recipe_payload = None
+    duplicate_recipe = find_duplicate_video_recipe(source.video_id, source.pk)
     if source.status == RecipeSource.Status.DONE and hasattr(source, "recipe"):
         recipe_url = source.recipe.get_absolute_url()
         recipe_payload = _recipe_payload(source.recipe)
+    elif duplicate_recipe:
+        recipe_url = duplicate_recipe.get_absolute_url()
 
     status_url = reverse_url(request, "recipes:api_extraction_status", pk=source.pk)
     detail_url = reverse_url(request, "recipes:source_detail", pk=source.pk)
