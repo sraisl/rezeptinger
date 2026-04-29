@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Recipe, RecipeSource
+from .models import Recipe, RecipeSource, Tag
 from .services.ingredients import replace_recipe_ingredients
 
 
@@ -20,6 +20,12 @@ class RecipeSourceForm(forms.ModelForm):
 
 
 class RecipeEditForm(forms.ModelForm):
+    tags = forms.ModelMultipleChoiceField(
+        label="Tags",
+        queryset=Tag.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
     ingredients_text = forms.CharField(
         label="Zutaten",
         required=False,
@@ -45,6 +51,7 @@ class RecipeEditForm(forms.ModelForm):
             "prep_time",
             "cook_time",
             "total_time",
+            "tags",
         ]
         labels = {
             "title": "Titel",
@@ -53,6 +60,7 @@ class RecipeEditForm(forms.ModelForm):
             "prep_time": "Vorbereitung",
             "cook_time": "Kochen/Backen",
             "total_time": "Gesamtzeit",
+            "tags": "Tags",
         }
         widgets = {
             "summary": forms.Textarea(attrs={"rows": 4}),
@@ -60,7 +68,9 @@ class RecipeEditForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["tags"].queryset = Tag.objects.all()
         if self.instance and self.instance.pk:
+            self.fields["tags"].initial = self.instance.tags.all()
             self.fields["ingredients_text"].initial = ingredients_to_text(
                 self.instance.ingredient_payloads()
             )
@@ -75,6 +85,7 @@ class RecipeEditForm(forms.ModelForm):
         recipe.notes = text_to_lines(self.cleaned_data["notes_text"])
         if commit:
             recipe.save()
+            self.save_m2m()
             replace_recipe_ingredients(recipe, ingredients)
         return recipe
 

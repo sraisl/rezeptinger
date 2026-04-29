@@ -45,6 +45,17 @@
             {{ form.total_time }}
             {{ form.total_time.errors }}
           </label>
+          <div class="full-span">
+            <span class="field-label">{{ form.tags.label }}</span>
+            {% if form.tags.field.queryset %}
+              <div class="checkbox-grid">
+                {{ form.tags }}
+              </div>
+            {% else %}
+              <p class="field-help">Tags können im Admin angelegt werden.</p>
+            {% endif %}
+            {{ form.tags.errors }}
+          </div>
         </div>
       </section>
 

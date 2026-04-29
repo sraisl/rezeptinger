@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html, format_html_join
 
-from .models import AppSettings, ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
+from .models import AppSettings, ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource, Tag
 from .services.lmstudio import connection_status as lm_studio_connection_status
 
 
@@ -77,8 +77,20 @@ class ExtractionAttemptAdmin(admin.ModelAdmin):
     search_fields = ("source__title", "source__url", "lm_studio_model", "error_details")
 
 
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug")
+    prepopulated_fields = {"slug": ("name",)}
+    search_fields = ("name", "slug")
+
+
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ("title", "servings", "total_time", "confidence", "created_at")
+    list_display = ("title", "tag_names", "servings", "total_time", "confidence", "created_at")
+    filter_horizontal = ("tags",)
     search_fields = ("title", "summary")
     inlines = [RecipeIngredientInline]
+
+    @admin.display(description="Tags")
+    def tag_names(self, obj):
+        return ", ".join(obj.tags.values_list("name", flat=True))

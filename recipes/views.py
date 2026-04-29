@@ -98,7 +98,10 @@ def delete_source(request, pk):
 
 
 def detail(request, pk):
-    recipe = get_object_or_404(Recipe.objects.select_related("source"), pk=pk)
+    recipe = get_object_or_404(
+        Recipe.objects.select_related("source").prefetch_related("tags"),
+        pk=pk,
+    )
     return render(
         request,
         "recipes/detail.html",

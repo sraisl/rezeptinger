@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse
+from django.utils.text import slugify
 
 
 class AppSettings(models.Model):
@@ -81,8 +82,25 @@ class ExtractionAttempt(models.Model):
         return f"{self.source} · {self.get_status_display()} · {self.started_at:%Y-%m-%d %H:%M}"
 
 
+class Tag(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    slug = models.SlugField(max_length=90, unique=True, blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args, **kwargs) -> None:
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
 class Recipe(models.Model):
     source = models.OneToOneField(RecipeSource, on_delete=models.CASCADE, related_name="recipe")
+    tags = models.ManyToManyField(Tag, blank=True, related_name="recipes")
     title = models.CharField(max_length=255)
     summary = models.TextField(blank=True)
     servings = models.CharField(max_length=100, blank=True)

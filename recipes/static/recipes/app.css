@@ -264,6 +264,46 @@ button:hover {
   font-weight: 800;
 }
 
+.field-label {
+  color: var(--muted);
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.field-help {
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.checkbox-grid ul {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checkbox-grid label {
+  align-items: center;
+  background: #f8faf7;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.checkbox-grid input {
+  flex: 0 0 auto;
+  min-height: 0;
+  width: auto;
+}
+
 .full-span {
   grid-column: 1 / -1;
 }
@@ -364,6 +404,23 @@ button:hover {
 .meta-line {
   display: flex;
   gap: 10px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.tag-pill {
+  background: #e9f3ef;
+  border: 1px solid #bad8cd;
+  border-radius: 999px;
+  color: var(--accent-dark);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 5px 10px;
 }
 
 .source-grid {

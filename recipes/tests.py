@@ -3,7 +3,14 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from recipes.models import AppSettings, ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
+from recipes.models import (
+    AppSettings,
+    ExtractionAttempt,
+    Recipe,
+    RecipeIngredient,
+    RecipeSource,
+    Tag,
+)
 from recipes.services import lmstudio
 from recipes.services.extractor import process_source
 from recipes.services.lmstudio import RecipeExtractionResult
@@ -228,6 +235,17 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, reverse("recipes:edit", kwargs={"pk": recipe.pk}))
 
+    def test_recipe_detail_shows_manual_tags(self):
+        source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=tagged")
+        recipe = Recipe.objects.create(source=source, title="Getaggtes Rezept")
+        recipe.tags.add(Tag.objects.create(name="Pasta"), Tag.objects.create(name="Quick"))
+
+        response = self.client.get(recipe.get_absolute_url())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Pasta")
+        self.assertContains(response, "Quick")
+
     def test_recipe_detail_shows_possible_duplicates(self):
         first_source = RecipeSource.objects.create(
             url="https://www.youtube.com/watch?v=duplicate-a",
@@ -301,6 +319,41 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(recipe.steps, ["Pasta kochen.", "Alles mischen."])
         self.assertEqual(recipe.notes, ["Mit Parmesan servieren."])
 
+    def test_recipe_edit_updates_tags(self):
+        source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=edit-tags")
+        recipe = Recipe.objects.create(source=source, title="Tag Rezept")
+        quick = Tag.objects.create(name="Quick")
+        dessert = Tag.objects.create(name="Dessert")
+
+        response = self.client.post(
+            reverse("recipes:edit", kwargs={"pk": recipe.pk}),
+            data={
+                "title": "Tag Rezept",
+                "summary": "",
+                "servings": "",
+                "prep_time": "",
+                "cook_time": "",
+                "total_time": "",
+                "tags": [str(quick.pk), str(dessert.pk)],
+                "ingredients_text": "",
+                "steps_text": "",
+                "notes_text": "",
+            },
+        )
+
+        self.assertRedirects(response, recipe.get_absolute_url())
+        self.assertEqual(set(recipe.tags.values_list("name", flat=True)), {"Quick", "Dessert"})
+
+    def test_recipe_edit_lists_available_tags(self):
+        source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=edit-tag-list")
+        recipe = Recipe.objects.create(source=source, title="Tag Auswahl")
+        Tag.objects.create(name="Pasta")
+
+        response = self.client.get(reverse("recipes:edit", kwargs={"pk": recipe.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Pasta")
+
     def test_search_uses_fts_index_for_ingredients_steps_channel_and_transcript(self):
         source = RecipeSource.objects.create(
             url="https://www.youtube.com/watch?v=fts",
@@ -344,6 +397,11 @@ class RecipeViewsTests(TestCase):
         self.assertRedirects(response, recipe.get_absolute_url())
         response = self.client.get(reverse("recipes:index"), {"q": "Sardellen"})
         self.assertContains(response, "Neuer Titel")
+
+    def test_tag_generates_slug_from_name(self):
+        tag = Tag.objects.create(name="Meal Prep")
+
+        self.assertEqual(tag.slug, "meal-prep")
 
 
 class ExtractionTests(TestCase):
