@@ -2,9 +2,10 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from recipes.models import Recipe, RecipeIngredient, RecipeSource
+from recipes.models import ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
 from recipes.services import lmstudio
 from recipes.services.extractor import process_source
+from recipes.services.lmstudio import RecipeExtractionResult
 from recipes.services.youtube import YouTubeRateLimited, YouTubeVideo, fetch_video
 
 
@@ -398,13 +399,27 @@ class ExtractionTests(TestCase):
 
             with (
                 patch("recipes.services.extractor.fetch_video", return_value=video),
-                patch("recipes.services.extractor.extract_recipe", return_value=payload),
+                patch(
+                    "recipes.services.extractor.extract_recipe_result",
+                    return_value=RecipeExtractionResult(
+                        payload=payload,
+                        lm_studio_model="test-model",
+                        prompt_version="test-prompt",
+                        raw_response='{"title": "Tomatenpasta"}',
+                    ),
+                ),
             ):
                 process_source(source)
 
         source.refresh_from_db()
         self.assertEqual(source.status, RecipeSource.Status.DONE)
         self.assertEqual(Recipe.objects.get(source=source).title, "Tomatenpasta")
+        attempt = ExtractionAttempt.objects.get(source=source)
+        self.assertEqual(attempt.status, ExtractionAttempt.Status.DONE)
+        self.assertEqual(attempt.lm_studio_model, "test-model")
+        self.assertEqual(attempt.prompt_version, "test-prompt")
+        self.assertEqual(attempt.raw_lm_studio_response, '{"title": "Tomatenpasta"}')
+        self.assertIsNotNone(attempt.finished_at)
 
     def test_process_source_marks_non_recipe_as_failed(self):
         source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=chat")
@@ -422,8 +437,13 @@ class ExtractionTests(TestCase):
         with (
             patch("recipes.services.extractor.fetch_video", return_value=video),
             patch(
-                "recipes.services.extractor.extract_recipe",
-                return_value={"is_recipe": False, "reason": "Kein Rezept.", "confidence": 0.2},
+                "recipes.services.extractor.extract_recipe_result",
+                return_value=RecipeExtractionResult(
+                    payload={"is_recipe": False, "reason": "Kein Rezept.", "confidence": 0.2},
+                    lm_studio_model="test-model",
+                    prompt_version="test-prompt",
+                    raw_response='{"is_recipe": false}',
+                ),
             ),
         ):
             process_source(source)
@@ -431,6 +451,10 @@ class ExtractionTests(TestCase):
         source.refresh_from_db()
         self.assertEqual(source.status, RecipeSource.Status.FAILED)
         self.assertFalse(Recipe.objects.filter(source=source).exists())
+        attempt = ExtractionAttempt.objects.get(source=source)
+        self.assertEqual(attempt.status, ExtractionAttempt.Status.FAILED)
+        self.assertEqual(attempt.error_details, "Kein Rezept.")
+        self.assertEqual(attempt.lm_studio_model, "test-model")
 
     def test_process_source_marks_repeated_video_as_failed_without_extraction(self):
         existing_source = RecipeSource.objects.create(
@@ -453,7 +477,7 @@ class ExtractionTests(TestCase):
 
         with (
             patch("recipes.services.extractor.fetch_video", return_value=video),
-            patch("recipes.services.extractor.extract_recipe") as extract,
+            patch("recipes.services.extractor.extract_recipe_result") as extract,
         ):
             process_source(source)
 
@@ -461,6 +485,64 @@ class ExtractionTests(TestCase):
         self.assertEqual(source.status, RecipeSource.Status.FAILED)
         self.assertIn("bereits als Rezept", source.error_message)
         extract.assert_not_called()
+        attempt = ExtractionAttempt.objects.get(source=source)
+        self.assertEqual(attempt.status, ExtractionAttempt.Status.FAILED)
+        self.assertIn("bereits als Rezept", attempt.error_details)
+
+    def test_process_source_records_lmstudio_error_details(self):
+        source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=lm-error")
+        video = YouTubeVideo(
+            url=source.url,
+            video_id="lm-error",
+            title="Pasta Video",
+            channel="Test Kitchen",
+            thumbnail_url="",
+            transcript="Wir kochen Pasta.",
+        )
+        error = lmstudio.RecipeExtractionError(
+            "Keine valide JSON-Antwort.",
+            lm_studio_model="broken-model",
+            prompt_version="test-prompt",
+            raw_response="kein json",
+        )
+
+        from unittest.mock import patch
+
+        with (
+            patch("recipes.services.extractor.fetch_video", return_value=video),
+            patch("recipes.services.extractor.extract_recipe_result", side_effect=error),
+        ):
+            process_source(source)
+
+        source.refresh_from_db()
+        self.assertEqual(source.status, RecipeSource.Status.FAILED)
+        attempt = ExtractionAttempt.objects.get(source=source)
+        self.assertEqual(attempt.status, ExtractionAttempt.Status.FAILED)
+        self.assertEqual(attempt.error_details, "Keine valide JSON-Antwort.")
+        self.assertEqual(attempt.lm_studio_model, "broken-model")
+        self.assertEqual(attempt.prompt_version, "test-prompt")
+        self.assertEqual(attempt.raw_lm_studio_response, "kein json")
+
+    def test_source_detail_shows_extraction_history(self):
+        source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=history",
+            status=RecipeSource.Status.FAILED,
+        )
+        ExtractionAttempt.objects.create(
+            source=source,
+            status=ExtractionAttempt.Status.FAILED,
+            lm_studio_model="history-model",
+            prompt_version="test-prompt",
+            raw_lm_studio_response="kein json",
+            error_details="Keine valide JSON-Antwort.",
+        )
+
+        response = self.client.get(reverse("recipes:source_detail", kwargs={"pk": source.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Extraktionshistorie")
+        self.assertContains(response, "history-model")
+        self.assertContains(response, "Keine valide JSON-Antwort.")
 
 
 class YouTubeTests(TestCase):

@@ -29,6 +29,37 @@ class RecipeSource(models.Model):
         return self.title or self.url
 
 
+class ExtractionAttempt(models.Model):
+    class Status(models.TextChoices):
+        PROCESSING = "processing", "Wird verarbeitet"
+        DONE = "done", "Fertig"
+        FAILED = "failed", "Fehlgeschlagen"
+        CANCELLED = "cancelled", "Abgebrochen"
+
+    source = models.ForeignKey(
+        RecipeSource,
+        on_delete=models.CASCADE,
+        related_name="extraction_attempts",
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PROCESSING)
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    lm_studio_model = models.CharField(max_length=255, blank=True)
+    prompt_version = models.CharField(max_length=40, blank=True)
+    raw_lm_studio_response = models.TextField(blank=True)
+    error_details = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["source", "-started_at"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.source} · {self.get_status_display()} · {self.started_at:%Y-%m-%d %H:%M}"
+
+
 class Recipe(models.Model):
     source = models.OneToOneField(RecipeSource, on_delete=models.CASCADE, related_name="recipe")
     title = models.CharField(max_length=255)
@@ -70,7 +101,7 @@ class RecipeIngredient(models.Model):
     class Meta:
         ordering = ["position", "id"]
         indexes = [
-            models.Index(fields=["name"]),
+            models.Index(fields=["name"], name="recipes_rec_name_80a9f0_idx"),
         ]
 
     def __str__(self) -> str:

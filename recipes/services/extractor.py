@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from django.db import transaction
+from django.utils import timezone
 
-from recipes.models import Recipe, RecipeSource
+from recipes.models import ExtractionAttempt, Recipe, RecipeSource
 
 from .duplicates import find_duplicate_video_recipe
 from .ingredients import replace_recipe_ingredients
-from .lmstudio import RecipeExtractionError, extract_recipe
+from .lmstudio import RecipeExtractionError, extract_recipe_result
 from .youtube import TranscriptUnavailable, YouTubeRateLimited, fetch_video
 
 
@@ -27,6 +28,7 @@ def process_source(source: RecipeSource) -> RecipeSource:
     if source.status == RecipeSource.Status.CANCELLED:
         return source
 
+    attempt = ExtractionAttempt.objects.create(source=source)
     source.status = RecipeSource.Status.PROCESSING
     source.error_message = ""
     source.save(update_fields=["status", "error_message", "updated_at"])
@@ -35,6 +37,11 @@ def process_source(source: RecipeSource) -> RecipeSource:
         video = fetch_video(source.url)
         source.refresh_from_db()
         if source.status == RecipeSource.Status.CANCELLED:
+            _finish_attempt(
+                attempt,
+                ExtractionAttempt.Status.CANCELLED,
+                "Extraktion wurde abgebrochen.",
+            )
             return source
 
         duplicate_recipe = find_duplicate_video_recipe(video.video_id, source.pk)
@@ -51,11 +58,28 @@ def process_source(source: RecipeSource) -> RecipeSource:
             )
             source.queue_task_id = ""
             source.save()
+            _finish_attempt(attempt, ExtractionAttempt.Status.FAILED, source.error_message)
             return source
 
-        payload = extract_recipe(video.title, video.channel, video.transcript)
+        result = extract_recipe_result(video.title, video.channel, video.transcript)
+        payload = result.payload
+        attempt.lm_studio_model = result.lm_studio_model
+        attempt.prompt_version = result.prompt_version
+        attempt.raw_lm_studio_response = result.raw_response
+        attempt.save(
+            update_fields=[
+                "lm_studio_model",
+                "prompt_version",
+                "raw_lm_studio_response",
+            ]
+        )
         source.refresh_from_db()
         if source.status == RecipeSource.Status.CANCELLED:
+            _finish_attempt(
+                attempt,
+                ExtractionAttempt.Status.CANCELLED,
+                "Extraktion wurde abgebrochen.",
+            )
             return source
 
         with transaction.atomic():
@@ -70,6 +94,7 @@ def process_source(source: RecipeSource) -> RecipeSource:
                 source.error_message = payload.get("reason", "Kein Rezept erkannt.")
                 source.queue_task_id = ""
                 source.save()
+                _finish_attempt(attempt, ExtractionAttempt.Status.FAILED, source.error_message)
                 return source
 
             recipe, _ = Recipe.objects.update_or_create(
@@ -92,14 +117,45 @@ def process_source(source: RecipeSource) -> RecipeSource:
             source.error_message = ""
             source.queue_task_id = ""
             source.save()
+            _finish_attempt(attempt, ExtractionAttempt.Status.DONE)
 
     except (TranscriptUnavailable, YouTubeRateLimited, RecipeExtractionError, Exception) as exc:
         source.refresh_from_db()
         if source.status == RecipeSource.Status.CANCELLED:
+            _finish_attempt(
+                attempt,
+                ExtractionAttempt.Status.CANCELLED,
+                "Extraktion wurde abgebrochen.",
+            )
             return source
+        if isinstance(exc, RecipeExtractionError):
+            attempt.lm_studio_model = exc.lm_studio_model
+            attempt.prompt_version = exc.prompt_version
+            attempt.raw_lm_studio_response = exc.raw_response
         source.status = RecipeSource.Status.FAILED
         source.error_message = str(exc)
         source.queue_task_id = ""
         source.save(update_fields=["status", "error_message", "queue_task_id", "updated_at"])
+        _finish_attempt(attempt, ExtractionAttempt.Status.FAILED, str(exc))
 
     return source
+
+
+def _finish_attempt(
+    attempt: ExtractionAttempt,
+    status: ExtractionAttempt.Status,
+    error_details: str = "",
+) -> None:
+    attempt.status = status
+    attempt.error_details = error_details
+    attempt.finished_at = timezone.now()
+    attempt.save(
+        update_fields=[
+            "status",
+            "error_details",
+            "finished_at",
+            "lm_studio_model",
+            "prompt_version",
+            "raw_lm_studio_response",
+        ]
+    )

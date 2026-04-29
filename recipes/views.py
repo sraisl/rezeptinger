@@ -126,12 +126,16 @@ def edit_recipe(request, pk):
 
 
 def source_detail(request, pk):
-    source = get_object_or_404(RecipeSource, pk=pk)
+    source = get_object_or_404(RecipeSource.objects.prefetch_related("extraction_attempts"), pk=pk)
     duplicate_recipe = find_duplicate_video_recipe(source.video_id, source.pk)
     return render(
         request,
         "recipes/source_detail.html",
-        {"source": source, "duplicate_recipe": duplicate_recipe},
+        {
+            "source": source,
+            "duplicate_recipe": duplicate_recipe,
+            "extraction_attempts": source.extraction_attempts.all(),
+        },
     )
 
 

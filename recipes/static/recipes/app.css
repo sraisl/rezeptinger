@@ -216,7 +216,8 @@ button:hover {
 
 .message,
 .empty-state,
-.source-panel {
+.source-panel,
+.history-panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -415,6 +416,88 @@ button:hover {
   color: var(--muted);
   line-height: 1.5;
   margin: 8px 0 16px;
+}
+
+.history-panel h2 {
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+
+.attempt-list {
+  display: grid;
+  gap: 12px;
+}
+
+.attempt-item {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.attempt-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.attempt-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attempt-heading .status {
+  margin-bottom: 0;
+}
+
+.attempt-heading time,
+.attempt-meta dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.attempt-meta {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 0;
+}
+
+.attempt-meta div {
+  min-width: 0;
+}
+
+.attempt-meta dt,
+.attempt-meta dd {
+  margin: 0;
+}
+
+.attempt-meta dd {
+  overflow-wrap: anywhere;
+}
+
+.attempt-error {
+  color: var(--danger);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.attempt-response summary {
+  color: var(--accent-dark);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.attempt-response pre {
+  background: #24211e;
+  border-radius: 8px;
+  color: #f5efe5;
+  line-height: 1.5;
+  max-height: 260px;
+  overflow: auto;
+  padding: 14px;
+  white-space: pre-wrap;
 }
 
 .spinner {

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -10,8 +11,29 @@ from django.conf import settings
 
 
 class RecipeExtractionError(Exception):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        lm_studio_model: str = "",
+        prompt_version: str = "",
+        raw_response: str = "",
+    ) -> None:
+        super().__init__(message)
+        self.lm_studio_model = lm_studio_model
+        self.prompt_version = prompt_version
+        self.raw_response = raw_response
 
+
+@dataclass(frozen=True)
+class RecipeExtractionResult:
+    payload: dict[str, Any]
+    lm_studio_model: str
+    prompt_version: str
+    raw_response: str
+
+
+PROMPT_VERSION = "2026-04-29"
 
 SYSTEM_PROMPT = """
 Du extrahierst Kochrezepte aus YouTube-Transkripten.
@@ -23,6 +45,14 @@ Schätze keine exakten Mengen, wenn sie nicht genannt werden.
 
 
 def extract_recipe(video_title: str, channel: str, transcript: str) -> dict[str, Any]:
+    return extract_recipe_result(video_title, channel, transcript).payload
+
+
+def extract_recipe_result(
+    video_title: str,
+    channel: str,
+    transcript: str,
+) -> RecipeExtractionResult:
     base_url = os.environ.get("LM_STUDIO_BASE_URL", settings.LM_STUDIO_BASE_URL).rstrip("/")
     model = _resolve_model(base_url)
     prompt = _build_prompt(video_title, channel, transcript)
@@ -44,7 +74,15 @@ def extract_recipe(video_title: str, channel: str, transcript: str) -> dict[str,
         response.raise_for_status()
     except httpx.HTTPError as exc:
         message = _format_http_error(exc)
-        raise RecipeExtractionError(message) from exc
+        raw_response = ""
+        if isinstance(exc, httpx.HTTPStatusError):
+            raw_response = exc.response.text
+        raise RecipeExtractionError(
+            message,
+            lm_studio_model=model,
+            prompt_version=PROMPT_VERSION,
+            raw_response=raw_response,
+        ) from exc
 
     try:
         content = response.json()["choices"][0]["message"]["content"]
@@ -52,9 +90,19 @@ def extract_recipe(video_title: str, channel: str, transcript: str) -> dict[str,
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
         excerpt = _response_content_excerpt(response)
         message = f"LM Studio hat keine valide JSON-Antwort geliefert. Antwortauszug: {excerpt}"
-        raise RecipeExtractionError(message) from exc
+        raise RecipeExtractionError(
+            message,
+            lm_studio_model=model,
+            prompt_version=PROMPT_VERSION,
+            raw_response=_raw_response_content(response),
+        ) from exc
 
-    return _normalize_recipe_payload(data)
+    return RecipeExtractionResult(
+        payload=_normalize_recipe_payload(data),
+        lm_studio_model=model,
+        prompt_version=PROMPT_VERSION,
+        raw_response=content,
+    )
 
 
 def _resolve_model(base_url: str) -> str:
@@ -146,12 +194,16 @@ def _parse_json_content(content: str) -> dict[str, Any]:
 
 
 def _response_content_excerpt(response: httpx.Response) -> str:
-    try:
-        content = response.json()["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError, ValueError):
-        content = response.text
+    content = _raw_response_content(response)
     content = re.sub(r"\s+", " ", str(content)).strip()
     return content[:500] or "leer"
+
+
+def _raw_response_content(response: httpx.Response) -> str:
+    try:
+        return str(response.json()["choices"][0]["message"]["content"])
+    except (KeyError, IndexError, TypeError, ValueError):
+        return response.text
 
 
 def _build_prompt(video_title: str, channel: str, transcript: str) -> str:

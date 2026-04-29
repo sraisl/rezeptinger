@@ -72,6 +72,55 @@
       {% endif %}
     </div>
 
+    {% if extraction_attempts %}
+      <section class="history-panel">
+        <h2>Extraktionshistorie</h2>
+        <div class="attempt-list">
+          {% for attempt in extraction_attempts %}
+            <article class="attempt-item">
+              <div class="attempt-heading">
+                <span class="status status-{{ attempt.status }}">
+                  {{ attempt.get_status_display }}
+                </span>
+                <time datetime="{{ attempt.started_at|date:'c' }}">
+                  {{ attempt.started_at|date:"d.m.Y H:i" }}
+                </time>
+              </div>
+              <dl class="attempt-meta">
+                {% if attempt.finished_at %}
+                  <div>
+                    <dt>Beendet</dt>
+                    <dd>{{ attempt.finished_at|date:"d.m.Y H:i" }}</dd>
+                  </div>
+                {% endif %}
+                {% if attempt.lm_studio_model %}
+                  <div>
+                    <dt>Modell</dt>
+                    <dd>{{ attempt.lm_studio_model }}</dd>
+                  </div>
+                {% endif %}
+                {% if attempt.prompt_version %}
+                  <div>
+                    <dt>Prompt</dt>
+                    <dd>{{ attempt.prompt_version }}</dd>
+                  </div>
+                {% endif %}
+              </dl>
+              {% if attempt.error_details %}
+                <p class="attempt-error">{{ attempt.error_details }}</p>
+              {% endif %}
+              {% if attempt.raw_lm_studio_response %}
+                <details class="attempt-response">
+                  <summary>Rohantwort anzeigen</summary>
+                  <pre>{{ attempt.raw_lm_studio_response }}</pre>
+                </details>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
     {% if source.transcript %}
       <h2>Transkript</h2>
       <pre class="transcript">{{ source.transcript }}</pre>

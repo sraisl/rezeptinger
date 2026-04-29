@@ -27,6 +27,35 @@ Run the Huey worker in a second terminal when testing extraction end-to-end:
 mise exec uv -- uv run python manage.py run_huey
 ```
 
+## Dev Environment Start And Restart
+
+Start or restart the local dev environment in this order:
+
+1. Stop any running Django `runserver` process.
+2. Stop any running Huey worker process.
+3. Apply migrations:
+
+```bash
+mise exec uv -- uv run python manage.py migrate
+```
+
+4. Start the Django dev server:
+
+```bash
+mise exec uv -- uv run python manage.py runserver 127.0.0.1:8000
+```
+
+5. Start the Huey worker in a separate terminal:
+
+```bash
+mise exec uv -- uv run python manage.py run_huey
+```
+
+Always restart both the web server and the Huey worker after code changes that affect models,
+migrations, extraction services, tasks, settings, or dependencies. A stale Huey worker can keep
+processing queued extractions with old code even while the web server is already running the new
+code.
+
 Quality checks:
 
 ```bash

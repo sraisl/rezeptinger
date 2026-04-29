@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Recipe, RecipeIngredient, RecipeSource
+from .models import ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
 
 
 class RecipeIngredientInline(admin.TabularInline):
@@ -13,6 +13,13 @@ class RecipeSourceAdmin(admin.ModelAdmin):
     list_display = ("title", "channel", "status", "created_at")
     list_filter = ("status", "created_at")
     search_fields = ("title", "channel", "url", "video_id")
+
+
+@admin.register(ExtractionAttempt)
+class ExtractionAttemptAdmin(admin.ModelAdmin):
+    list_display = ("source", "status", "lm_studio_model", "prompt_version", "started_at")
+    list_filter = ("status", "prompt_version", "started_at")
+    search_fields = ("source__title", "source__url", "lm_studio_model", "error_details")
 
 
 @admin.register(Recipe)
