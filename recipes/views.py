@@ -1,7 +1,6 @@
 import json
 
 from django.contrib import messages
-from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -12,20 +11,13 @@ from .forms import RecipeEditForm, RecipeSourceForm
 from .models import Recipe, RecipeSource
 from .services.extractor import enqueue_source_processing
 from .services.portable_data import export_catalog, import_catalog
+from .services.search import search_recipes
 
 
 def index(request):
     query = request.GET.get("q", "").strip()
-    recipes = Recipe.objects.select_related("source")
+    recipes = search_recipes(query) if query else Recipe.objects.select_related("source")
     sources = RecipeSource.objects.exclude(status=RecipeSource.Status.DONE)[:8]
-
-    if query:
-        recipes = recipes.filter(
-            Q(title__icontains=query)
-            | Q(summary__icontains=query)
-            | Q(source__title__icontains=query)
-            | Q(source__channel__icontains=query)
-        )
 
     return render(
         request,

@@ -196,6 +196,50 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(recipe.steps, ["Pasta kochen.", "Alles mischen."])
         self.assertEqual(recipe.notes, ["Mit Parmesan servieren."])
 
+    def test_search_uses_fts_index_for_ingredients_steps_channel_and_transcript(self):
+        source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=fts",
+            channel="Test Kitchen",
+            transcript="Am Ende kommt frischer Basilikum dazu.",
+            status=RecipeSource.Status.DONE,
+        )
+        recipe = Recipe.objects.create(
+            source=source,
+            title="Sommerpasta",
+            ingredients=[{"name": "Tomaten"}],
+            steps=["Pasta kochen und Sauce mischen."],
+        )
+
+        searches = ["Tomaten", "Sauce", "Kitchen", "Basilikum"]
+        for query in searches:
+            with self.subTest(query=query):
+                response = self.client.get(reverse("recipes:index"), {"q": query})
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, recipe.title)
+
+    def test_search_index_updates_after_recipe_edit(self):
+        source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=fts-edit")
+        recipe = Recipe.objects.create(source=source, title="Alter Titel", ingredients=[])
+
+        response = self.client.post(
+            reverse("recipes:edit", kwargs={"pk": recipe.pk}),
+            data={
+                "title": "Neuer Titel",
+                "summary": "",
+                "servings": "",
+                "prep_time": "",
+                "cook_time": "",
+                "total_time": "",
+                "ingredients_text": "Sardellen",
+                "steps_text": "",
+                "notes_text": "",
+            },
+        )
+
+        self.assertRedirects(response, recipe.get_absolute_url())
+        response = self.client.get(reverse("recipes:index"), {"q": "Sardellen"})
+        self.assertContains(response, "Neuer Titel")
+
 
 class ExtractionTests(TestCase):
     def test_process_source_creates_recipe(self):

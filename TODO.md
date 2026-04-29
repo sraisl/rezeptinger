@@ -14,7 +14,6 @@
 
 ## Search And Data
 
-- [ ] Improve search with SQLite FTS5 across title, ingredients, steps, source channel, and transcript.
 - [ ] Consider normalizing ingredients into dedicated models once filtering/search needs grow beyond JSON fields.
 - [ ] Make import/export more explicitly versioned with schema checks, export migrations, and optional compressed exports.
 
