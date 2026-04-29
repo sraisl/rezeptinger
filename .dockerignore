@@ -1,0 +1,12 @@
+.git/
+.github/
+.ruff_cache/
+.venv/
+__pycache__/
+*.py[cod]
+db.sqlite3
+.env
+.DS_Store
+media/
+*.sqlite3
+
