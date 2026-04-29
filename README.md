@@ -182,6 +182,21 @@ export YT_DLP_COOKIES_FILE=/pfad/zu/cookies.txt
 
 Im Docker-Setup muss die Datei zusätzlich in den Container gemountet und der Container mit `-e YT_DLP_COOKIES_FILE=/data/cookies.txt` gestartet werden.
 
+## Bookmarklet
+
+Im Browser findest du unter `Tools` ein Bookmarklet. Damit kannst du eine geöffnete YouTube-Seite
+direkt an Rezeptinger senden.
+
+So richtest du es ein:
+
+1. Starte Rezeptinger lokal und öffne <http://127.0.0.1:8000/bookmarklet/>.
+2. Ziehe den Button `An Rezeptinger senden` in die Lesezeichenleiste deines Browsers.
+3. Öffne ein YouTube-Video.
+4. Klicke in der Lesezeichenleiste auf `An Rezeptinger senden`.
+
+Rezeptinger übernimmt die aktuelle YouTube-URL, startet die Extraktion und öffnet die
+Quell-Detailseite. Das Bookmarklet akzeptiert nur YouTube-URLs.
+
 ## Headless API
 
 Extraktion starten:
