@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
-from django.conf import settings
+
+from .app_settings import extraction_prompt, lm_studio_base_url, lm_studio_model, transcript_limit
 
 
 class RecipeExtractionError(Exception):
@@ -53,14 +53,15 @@ def extract_recipe_result(
     channel: str,
     transcript: str,
 ) -> RecipeExtractionResult:
-    base_url = os.environ.get("LM_STUDIO_BASE_URL", settings.LM_STUDIO_BASE_URL).rstrip("/")
+    base_url = lm_studio_base_url()
     model = _resolve_model(base_url)
     prompt = _build_prompt(video_title, channel, transcript)
+    system_prompt = extraction_prompt() or SYSTEM_PROMPT
 
     payload = {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.1,
@@ -106,7 +107,7 @@ def extract_recipe_result(
 
 
 def _resolve_model(base_url: str) -> str:
-    configured = os.environ.get("LM_STUDIO_MODEL", settings.LM_STUDIO_MODEL).strip()
+    configured = lm_studio_model().strip()
     if configured:
         return configured
 
@@ -207,7 +208,7 @@ def _raw_response_content(response: httpx.Response) -> str:
 
 
 def _build_prompt(video_title: str, channel: str, transcript: str) -> str:
-    transcript = transcript[:30000]
+    transcript = transcript[: transcript_limit()]
     return f"""
 Video-Titel: {video_title}
 Kanal: {channel}

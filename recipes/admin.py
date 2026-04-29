@@ -1,11 +1,19 @@
 from django.contrib import admin
 
-from .models import ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
+from .models import AppSettings, ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
 
 
 class RecipeIngredientInline(admin.TabularInline):
     model = RecipeIngredient
     extra = 0
+
+
+@admin.register(AppSettings)
+class AppSettingsAdmin(admin.ModelAdmin):
+    list_display = ("lm_studio_base_url", "lm_studio_model", "transcript_limit", "updated_at")
+
+    def has_add_permission(self, request):
+        return not AppSettings.objects.exists()
 
 
 @admin.register(RecipeSource)

@@ -101,6 +101,20 @@ export LM_STUDIO_BASE_URL=http://localhost:1234/v1
 export LM_STUDIO_MODEL=
 ```
 
+## Admin
+
+The Django admin is available at `http://127.0.0.1:8000/admin/`.
+
+Create a local admin user when needed:
+
+```bash
+mise exec uv -- uv run python manage.py createsuperuser
+```
+
+Rezeptinger app settings are admin-only. Edit LM Studio base URL, selected model/default model,
+transcript limit, language preference, and extraction prompt through `App settings` in Django
+admin, not through a public app page.
+
 ## API Surface
 
 Start extraction:

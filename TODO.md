@@ -2,11 +2,10 @@
 
 ## Next
 
-- [ ] Add an in-app settings page for LM Studio base URL, selected model/default model, transcript limit, language preference, and extraction prompt.
+- [ ] Show LM Studio connection status and available `/v1/models` entries in the app.
 
 ## Product
 
-- [ ] Show LM Studio connection status and available `/v1/models` entries in the app.
 - [ ] Add tags and categories such as pasta, dessert, vegetarian, quick, and meal prep.
 - [ ] Add a small bookmarklet or browser extension to send the current YouTube URL to Rezeptinger.
 
@@ -36,4 +35,5 @@
 
 ## Done
 
+- [x] Add admin-only settings for LM Studio base URL, selected model/default model, transcript limit, language preference, and extraction prompt.
 - [x] Add extraction history with retry timestamps, selected LM Studio model, prompt version, raw LM Studio response, and error details.

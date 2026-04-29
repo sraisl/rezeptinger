@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from recipes.models import ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
+from recipes.models import AppSettings, ExtractionAttempt, Recipe, RecipeIngredient, RecipeSource
 from recipes.services import lmstudio
 from recipes.services.extractor import process_source
 from recipes.services.lmstudio import RecipeExtractionResult
@@ -595,6 +595,14 @@ class YouTubeTests(TestCase):
         self.assertIn("/api/timedtext", str(error.exception))
         self.assertIn("Metadaten konnten gelesen werden", str(error.exception))
 
+    def test_preferred_languages_uses_app_setting_first(self):
+        from recipes.services.youtube import _preferred_languages
+
+        AppSettings.objects.create(pk=1, language_preference="fr, es")
+        collection = {"de": [], "fr": [], "en": [], "es": []}
+
+        self.assertEqual(_preferred_languages(collection), ["fr", "es", "de", "en"])
+
 
 class LmStudioTests(TestCase):
     def test_resolve_model_uses_first_loaded_model(self):
@@ -694,6 +702,42 @@ class LmStudioTests(TestCase):
 
         self.assertIn("Antwortauszug", str(error.exception))
         self.assertIn("Ich kann das nicht", str(error.exception))
+
+    def test_extract_recipe_uses_saved_app_settings(self):
+        from unittest.mock import patch
+
+        AppSettings.objects.create(
+            pk=1,
+            lm_studio_base_url="http://lmstudio.test/v1",
+            lm_studio_model="saved-model",
+            transcript_limit=1000,
+            extraction_prompt="Custom system prompt.",
+        )
+        response = _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"is_recipe": false, "reason": "Kein Rezept.", "confidence": 0.4}'
+                            )
+                        }
+                    }
+                ]
+            }
+        )
+
+        with patch("recipes.services.lmstudio.httpx.post", return_value=response) as post:
+            transcript = f"{'a' * 1000}TRUNCATED"
+            payload = lmstudio.extract_recipe("Titel", "Kanal", transcript)
+
+        self.assertFalse(payload["is_recipe"])
+        self.assertEqual(post.call_args.args[0], "http://lmstudio.test/v1/chat/completions")
+        request_payload = post.call_args.kwargs["json"]
+        self.assertEqual(request_payload["model"], "saved-model")
+        self.assertEqual(request_payload["messages"][0]["content"], "Custom system prompt.")
+        self.assertIn("a" * 1000, request_payload["messages"][1]["content"])
+        self.assertNotIn("TRUNCATED", request_payload["messages"][1]["content"])
 
 
 class _FakeResponse:

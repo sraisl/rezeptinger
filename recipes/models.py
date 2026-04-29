@@ -2,6 +2,27 @@ from django.db import models
 from django.urls import reverse
 
 
+class AppSettings(models.Model):
+    lm_studio_base_url = models.URLField(blank=True)
+    lm_studio_model = models.CharField(max_length=255, blank=True)
+    transcript_limit = models.PositiveIntegerField(default=30000)
+    language_preference = models.CharField(max_length=40, blank=True)
+    extraction_prompt = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "App settings"
+        verbose_name_plural = "App settings"
+
+    def __str__(self) -> str:
+        return "Rezeptinger settings"
+
+    @classmethod
+    def load(cls) -> "AppSettings":
+        settings, _ = cls.objects.get_or_create(pk=1)
+        return settings
+
+
 class RecipeSource(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Wartet"

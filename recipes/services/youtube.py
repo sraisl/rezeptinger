@@ -9,6 +9,8 @@ from urllib.error import HTTPError
 
 from yt_dlp import YoutubeDL
 
+from .app_settings import language_preferences
+
 
 class TranscriptUnavailable(Exception):
     pass
@@ -114,11 +116,12 @@ def _extract_transcript(info: dict) -> str:
 
 
 def _preferred_languages(collection: dict) -> list[str]:
-    preferred = ["de", "de-DE", "en", "en-US", "en-GB"]
+    configured_languages = language_preferences()
+    preferred = [*configured_languages, "de", "de-DE", "en", "en-US", "en-GB"]
     available = list(collection.keys())
     ordered = [language for language in preferred if language in collection]
     ordered.extend(language for language in available if language not in ordered)
-    return ordered
+    return list(dict.fromkeys(ordered))
 
 
 def _transcript_from_tracks(tracks: list[dict]) -> tuple[str, bool]:

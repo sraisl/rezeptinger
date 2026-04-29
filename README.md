@@ -42,6 +42,18 @@ Du kannst es jederzeit per `LM_STUDIO_MODEL` überschreiben. Das ist relevant, w
 
 Wenn `LM_STUDIO_MODEL` leer ist, versucht die App ein geeignetes geladenes Modell über `/v1/models` zu finden. Dabei werden Chat/Instruct-nahe Modelle bevorzugt und Embedding-Modelle ignoriert.
 
+## Admin
+
+Der Django-Admin ist lokal unter <http://127.0.0.1:8000/admin/> erreichbar. Falls noch kein
+Admin-User existiert, lege ihn so an:
+
+```bash
+uv run python manage.py createsuperuser
+```
+
+Die Rezeptinger-Einstellungen wie LM-Studio-URL, Modell, Transkript-Limit, Sprachpräferenz und
+Extraktionsprompt werden nur im Admin unter `App settings` bearbeitet.
+
 ## Docker lokal
 
 Das Docker-Image ist derzeit bewusst ein lokales Entwicklungsimage. Es nutzt Django `runserver`, führt beim Start automatisch Migrationen aus und speichert SQLite standardmäßig unter `/data/db.sqlite3`.
