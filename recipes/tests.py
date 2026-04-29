@@ -91,6 +91,40 @@ class RecipeViewsTests(TestCase):
         self.assertIn("pending", data)
         self.assertEqual(data["failed_sources"], 1)
 
+    def test_bookmarklet_page_renders_bookmarklet_link(self):
+        response = self.client.get(reverse("recipes:bookmarklet"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "An Rezeptinger senden")
+        self.assertContains(response, "javascript:")
+        self.assertContains(response, reverse("recipes:bookmarklet_capture"))
+
+    def test_bookmarklet_capture_enqueues_youtube_url(self):
+        from unittest.mock import patch
+
+        with patch("recipes.views.enqueue_source_processing") as enqueue:
+            response = self.client.get(
+                reverse("recipes:bookmarklet_capture"),
+                {"url": "https://www.youtube.com/watch?v=bookmark"},
+            )
+
+        source = RecipeSource.objects.get(url="https://www.youtube.com/watch?v=bookmark")
+        self.assertRedirects(response, reverse("recipes:source_detail", kwargs={"pk": source.pk}))
+        enqueue.assert_called_once_with(source)
+
+    def test_bookmarklet_capture_rejects_invalid_url(self):
+        from unittest.mock import patch
+
+        with patch("recipes.views.enqueue_source_processing") as enqueue:
+            response = self.client.get(
+                reverse("recipes:bookmarklet_capture"),
+                {"url": "https://example.com/not-youtube"},
+            )
+
+        self.assertRedirects(response, reverse("recipes:index"))
+        self.assertFalse(RecipeSource.objects.exists())
+        enqueue.assert_not_called()
+
     def test_cancel_processing_source_marks_cancelled_and_revokes_task(self):
         source = RecipeSource.objects.create(
             url="https://www.youtube.com/watch?v=cancel",

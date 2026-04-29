@@ -1,0 +1,18 @@
+{% extends "recipes/base.html" %}
+
+{% block title %}Tools · Rezeptinger{% endblock %}
+
+{% block content %}
+  <section class="detail">
+    <div>
+      <a class="muted-link" href="{% url 'recipes:index' %}">← Katalog</a>
+      <h1>Tools.</h1>
+    </div>
+
+    <section class="tool-panel">
+      <h2>Bookmarklet</h2>
+      <p>Ziehe diesen Link in die Lesezeichenleiste und klicke ihn auf einer YouTube-Seite.</p>
+      <a class="button-link bookmarklet-link" href="{{ bookmarklet }}">An Rezeptinger senden</a>
+    </section>
+  </section>
+{% endblock %}

@@ -1,4 +1,5 @@
 import json
+from urllib.parse import urlparse
 
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
@@ -164,6 +165,36 @@ def data_tools(request):
     return render(request, "recipes/data_tools.html")
 
 
+def bookmarklet_tools(request):
+    target_url = request.build_absolute_uri(reverse_url_path("recipes:bookmarklet_capture"))
+    bookmarklet = (
+        "javascript:(()=>{"
+        f"location.href='{target_url}?url='+encodeURIComponent(location.href)"
+        "})()"
+    )
+    return render(request, "recipes/bookmarklet.html", {"bookmarklet": bookmarklet})
+
+
+def bookmarklet_capture(request):
+    url = request.GET.get("url", "")
+    form = RecipeSourceForm({"url": url})
+    if not form.is_valid() or not _is_youtube_url(url):
+        messages.error(request, "Die aktuelle Seite ist keine valide YouTube-URL.")
+        return redirect("recipes:index")
+
+    source, created = RecipeSource.objects.get_or_create(url=form.cleaned_data["url"])
+    if source.status == RecipeSource.Status.DONE and hasattr(source, "recipe"):
+        messages.info(request, "Dieses Rezept ist bereits im Katalog.")
+        return redirect(source.recipe)
+
+    if not created:
+        messages.info(request, "Die Quelle wird erneut verarbeitet.")
+
+    enqueue_source_processing(source)
+    messages.info(request, "Extraktion über Bookmarklet gestartet.")
+    return redirect("recipes:source_detail", pk=source.pk)
+
+
 def data_export(request):
     payload = export_catalog()
     timestamp = timezone.now().strftime("%Y%m%d-%H%M%S")
@@ -311,3 +342,14 @@ def reverse_url(request, viewname: str, **kwargs) -> str:
     from django.urls import reverse
 
     return request.build_absolute_uri(reverse(viewname, kwargs=kwargs))
+
+
+def reverse_url_path(viewname: str, **kwargs) -> str:
+    from django.urls import reverse
+
+    return reverse(viewname, kwargs=kwargs)
+
+
+def _is_youtube_url(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return host in {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}

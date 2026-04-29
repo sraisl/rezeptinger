@@ -179,6 +179,10 @@ button:hover {
   background: var(--accent-dark);
 }
 
+.bookmarklet-link {
+  margin-top: 10px;
+}
+
 .secondary-button {
   background: transparent;
   border: 1px solid var(--line);
