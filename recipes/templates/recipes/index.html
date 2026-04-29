@@ -47,6 +47,20 @@
                 {% csrf_token %}
                 <button class="secondary-button" type="submit">Erneut versuchen</button>
               </form>
+              <form action="{% url 'recipes:delete_source' source.pk %}" method="post">
+                {% csrf_token %}
+                <button class="danger-button" type="submit">Entfernen</button>
+              </form>
+            {% elif source.status == "processing" %}
+              <form action="{% url 'recipes:cancel_source' source.pk %}" method="post">
+                {% csrf_token %}
+                <button class="secondary-button" type="submit">Abbrechen</button>
+              </form>
+            {% elif source.status == "cancelled" %}
+              <form action="{% url 'recipes:delete_source' source.pk %}" method="post">
+                {% csrf_token %}
+                <button class="danger-button" type="submit">Entfernen</button>
+              </form>
             {% endif %}
           </div>
         {% endfor %}

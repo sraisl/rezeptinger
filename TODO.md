@@ -2,7 +2,6 @@
 
 ## Next
 
-- [ ] Add proper background jobs instead of in-process threads, for example Huey, Django-Q2, or RQ.
 - [ ] Add extraction history with retry timestamps, model name, prompt version, raw LM Studio response, and error details.
 
 ## Product

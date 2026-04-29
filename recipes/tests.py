@@ -54,6 +54,69 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], RecipeSource.Status.PROCESSING)
 
+    def test_queue_status_renders_html(self):
+        RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=processing",
+            status=RecipeSource.Status.PROCESSING,
+        )
+
+        response = self.client.get(reverse("recipes:queue_status"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Queue Status")
+        self.assertContains(response, "Quellen in Arbeit")
+
+    def test_queue_status_returns_json(self):
+        RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=failed-queue",
+            status=RecipeSource.Status.FAILED,
+        )
+
+        response = self.client.get(
+            reverse("recipes:queue_status"),
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("pending", data)
+        self.assertEqual(data["failed_sources"], 1)
+
+    def test_cancel_processing_source_marks_cancelled_and_revokes_task(self):
+        source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=cancel",
+            status=RecipeSource.Status.PROCESSING,
+            queue_task_id="task-123",
+        )
+
+        from unittest.mock import patch
+
+        with patch("recipes.views.revoke_source_task") as revoke:
+            response = self.client.post(reverse("recipes:cancel_source", kwargs={"pk": source.pk}))
+
+        self.assertRedirects(response, reverse("recipes:source_detail", kwargs={"pk": source.pk}))
+        source.refresh_from_db()
+        self.assertEqual(source.status, RecipeSource.Status.CANCELLED)
+        self.assertEqual(source.queue_task_id, "")
+        revoke.assert_called_once_with(source)
+
+    def test_delete_failed_source_removes_it(self):
+        source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=delete",
+            status=RecipeSource.Status.FAILED,
+            queue_task_id="task-456",
+        )
+
+        from unittest.mock import patch
+
+        with patch("recipes.views.revoke_source_task") as revoke:
+            response = self.client.post(reverse("recipes:delete_source", kwargs={"pk": source.pk}))
+
+        self.assertRedirects(response, reverse("recipes:index"))
+        self.assertFalse(RecipeSource.objects.filter(pk=source.pk).exists())
+        revoke.assert_called_once()
+        self.assertEqual(revoke.call_args.args[0].url, source.url)
+
     def test_api_create_extraction_accepts_json(self):
         from unittest.mock import patch
 
@@ -246,6 +309,27 @@ class RecipeViewsTests(TestCase):
 
 
 class ExtractionTests(TestCase):
+    def test_enqueue_source_processing_queues_huey_task(self):
+        source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=queue",
+            status=RecipeSource.Status.FAILED,
+            error_message="Vorheriger Fehler.",
+        )
+
+        from unittest.mock import patch
+
+        with patch("recipes.tasks.process_source_task") as task:
+            task.return_value.id = "task-123"
+            from recipes.services.extractor import enqueue_source_processing
+
+            enqueue_source_processing(source)
+
+        source.refresh_from_db()
+        self.assertEqual(source.status, RecipeSource.Status.PROCESSING)
+        self.assertEqual(source.error_message, "")
+        self.assertEqual(source.queue_task_id, "task-123")
+        task.assert_called_once_with(source.pk)
+
     def test_process_source_creates_recipe(self):
         source = RecipeSource.objects.create(url="https://www.youtube.com/watch?v=test")
         video = YouTubeVideo(
@@ -355,6 +439,62 @@ class LmStudioTests(TestCase):
         self.assertFalse(payload["is_recipe"])
         self.assertEqual(post.call_count, 2)
         self.assertNotIn("response_format", post.call_args_list[1].kwargs["json"])
+
+    def test_resolve_model_prefers_instruct_model(self):
+        from unittest.mock import patch
+
+        response = _FakeResponse(
+            {
+                "data": [
+                    {"id": "google/gemma-4-e2b"},
+                    {"id": "text-embedding-nomic-embed-text-v1.5"},
+                    {"id": "mistralai/mistral-7b-instruct-v0.3"},
+                ]
+            }
+        )
+
+        with (
+            self.settings(LM_STUDIO_MODEL=""),
+            patch("recipes.services.lmstudio.httpx.get", return_value=response),
+        ):
+            self.assertEqual(
+                lmstudio._resolve_model("http://localhost:1234/v1"),
+                "mistralai/mistral-7b-instruct-v0.3",
+            )
+
+    def test_parse_json_content_accepts_markdown_wrapped_json(self):
+        content = """
+        Hier ist das JSON:
+        ```json
+        {"is_recipe": false, "reason": "Kein Rezept.", "confidence": 0.3}
+        ```
+        """
+
+        payload = lmstudio._parse_json_content(content)
+
+        self.assertFalse(payload["is_recipe"])
+
+    def test_parse_json_content_accepts_prefixed_json(self):
+        content = 'Antwort: {"is_recipe": false, "reason": "Kein Rezept.", "confidence": 0.3}'
+
+        payload = lmstudio._parse_json_content(content)
+
+        self.assertFalse(payload["is_recipe"])
+
+    def test_extract_recipe_error_includes_response_excerpt(self):
+        from unittest.mock import patch
+
+        response = _FakeResponse({"choices": [{"message": {"content": "Ich kann das nicht."}}]})
+
+        with (
+            self.settings(LM_STUDIO_MODEL="loaded-model"),
+            patch("recipes.services.lmstudio.httpx.post", return_value=response),
+        ):
+            with self.assertRaises(lmstudio.RecipeExtractionError) as error:
+                lmstudio.extract_recipe("Titel", "Kanal", "Transkript")
+
+        self.assertIn("Antwortauszug", str(error.exception))
+        self.assertIn("Ich kann das nicht", str(error.exception))
 
 
 class _FakeResponse:

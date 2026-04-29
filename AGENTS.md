@@ -21,6 +21,12 @@ mise exec uv -- uv run python manage.py migrate
 mise exec uv -- uv run python manage.py runserver 127.0.0.1:8000
 ```
 
+Run the Huey worker in a second terminal when testing extraction end-to-end:
+
+```bash
+mise exec uv -- uv run python manage.py run_huey
+```
+
 Quality checks:
 
 ```bash
@@ -35,6 +41,7 @@ mise exec uv -- uv run python manage.py test
 - `recipes/services/youtube.py`: Fetches YouTube metadata and captions.
 - `recipes/services/lmstudio.py`: Talks to LM Studio.
 - `recipes/services/extractor.py`: Coordinates extraction and background processing.
+- `recipes/tasks.py`: Huey tasks for queued extraction.
 - `recipes/services/portable_data.py`: JSON import/export.
 
 ## Development Notes
@@ -42,7 +49,7 @@ mise exec uv -- uv run python manage.py test
 - Keep the app simple and monolithic unless there is a clear need to split it.
 - Prefer server-rendered Django templates over adding a frontend framework.
 - Use SQLite-friendly logic.
-- Do not introduce a task queue casually; the current local background thread is intentional for this small app.
+- Extraction is queued through Huey. Keep web and worker behavior compatible with local SQLite.
 - If adding external dependencies, put them in `pyproject.toml` and sync with `uv`.
 - Keep import/export backwards-friendly by bumping the export `version` if the JSON format changes.
 
@@ -101,4 +108,3 @@ Run these before considering a code change done:
 mise exec uv -- uv run ruff check .
 mise exec uv -- uv run python manage.py test
 ```
-

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from threading import Thread
-
-from django.db import close_old_connections, transaction
+from django.db import transaction
 
 from recipes.models import Recipe, RecipeSource
 
@@ -14,29 +12,34 @@ from .youtube import TranscriptUnavailable, fetch_video
 def enqueue_source_processing(source: RecipeSource) -> None:
     source.status = RecipeSource.Status.PROCESSING
     source.error_message = ""
-    source.save(update_fields=["status", "error_message", "updated_at"])
+    source.queue_task_id = ""
+    source.save(update_fields=["status", "error_message", "queue_task_id", "updated_at"])
+    from recipes.tasks import process_source_task
 
-    thread = Thread(target=_process_source_by_id, args=(source.pk,), daemon=True)
-    thread.start()
-
-
-def _process_source_by_id(source_id: int) -> None:
-    close_old_connections()
-    try:
-        source = RecipeSource.objects.get(pk=source_id)
-        process_source(source)
-    finally:
-        close_old_connections()
+    task = process_source_task(source.pk)
+    source.queue_task_id = task.id
+    source.save(update_fields=["queue_task_id", "updated_at"])
 
 
 def process_source(source: RecipeSource) -> RecipeSource:
+    source.refresh_from_db()
+    if source.status == RecipeSource.Status.CANCELLED:
+        return source
+
     source.status = RecipeSource.Status.PROCESSING
     source.error_message = ""
     source.save(update_fields=["status", "error_message", "updated_at"])
 
     try:
         video = fetch_video(source.url)
+        source.refresh_from_db()
+        if source.status == RecipeSource.Status.CANCELLED:
+            return source
+
         payload = extract_recipe(video.title, video.channel, video.transcript)
+        source.refresh_from_db()
+        if source.status == RecipeSource.Status.CANCELLED:
+            return source
 
         with transaction.atomic():
             source.title = video.title
@@ -48,6 +51,7 @@ def process_source(source: RecipeSource) -> RecipeSource:
             if not payload["is_recipe"]:
                 source.status = RecipeSource.Status.FAILED
                 source.error_message = payload.get("reason", "Kein Rezept erkannt.")
+                source.queue_task_id = ""
                 source.save()
                 return source
 
@@ -69,11 +73,16 @@ def process_source(source: RecipeSource) -> RecipeSource:
             replace_recipe_ingredients(recipe, payload["ingredients"])
             source.status = RecipeSource.Status.DONE
             source.error_message = ""
+            source.queue_task_id = ""
             source.save()
 
     except (TranscriptUnavailable, RecipeExtractionError, Exception) as exc:
+        source.refresh_from_db()
+        if source.status == RecipeSource.Status.CANCELLED:
+            return source
         source.status = RecipeSource.Status.FAILED
         source.error_message = str(exc)
-        source.save(update_fields=["status", "error_message", "updated_at"])
+        source.queue_task_id = ""
+        source.save(update_fields=["status", "error_message", "queue_task_id", "updated_at"])
 
     return source

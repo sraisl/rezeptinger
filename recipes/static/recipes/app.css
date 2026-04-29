@@ -191,6 +191,18 @@ button:hover {
   background: #eef7f3;
 }
 
+.danger-button {
+  background: transparent;
+  border: 1px solid #e4b0a5;
+  color: var(--danger);
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.danger-button:hover {
+  background: #f9e8e5;
+}
+
 .field-error {
   color: var(--danger);
   font-size: 14px;
@@ -434,6 +446,11 @@ button:hover {
 .status-failed {
   background: #f5d4d4;
   color: var(--danger);
+}
+
+.status-cancelled {
+  background: #ece7df;
+  color: var(--muted);
 }
 
 .detail {

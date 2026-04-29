@@ -3,6 +3,8 @@
 __pycache__/
 *.py[cod]
 db.sqlite3
+huey.sqlite3
+huey.sqlite3-*
 .env
 .DS_Store
 media/

@@ -11,6 +11,8 @@ from .forms import RecipeEditForm, RecipeSourceForm
 from .models import Recipe, RecipeSource
 from .services.extractor import enqueue_source_processing
 from .services.portable_data import export_catalog, import_catalog
+from .services.queue import queue_status as get_queue_status
+from .services.queue import revoke_source_task
 from .services.search import search_recipes
 
 
@@ -68,6 +70,32 @@ def retry_source(request, pk):
     return redirect("recipes:source_detail", pk=source.pk)
 
 
+@require_http_methods(["POST"])
+def cancel_source(request, pk):
+    source = get_object_or_404(RecipeSource, pk=pk)
+    if source.status == RecipeSource.Status.PROCESSING:
+        revoke_source_task(source)
+        source.status = RecipeSource.Status.CANCELLED
+        source.error_message = "Extraktion wurde abgebrochen."
+        source.queue_task_id = ""
+        source.save(update_fields=["status", "error_message", "queue_task_id", "updated_at"])
+        messages.info(request, "Extraktion wurde abgebrochen.")
+    return redirect("recipes:source_detail", pk=source.pk)
+
+
+@require_http_methods(["POST"])
+def delete_source(request, pk):
+    source = get_object_or_404(RecipeSource, pk=pk)
+    if source.status in {RecipeSource.Status.FAILED, RecipeSource.Status.CANCELLED}:
+        revoke_source_task(source)
+        source.delete()
+        messages.success(request, "Quelle wurde entfernt.")
+        return redirect("recipes:index")
+
+    messages.error(request, "Nur fehlgeschlagene oder abgebrochene Quellen können entfernt werden.")
+    return redirect("recipes:source_detail", pk=source.pk)
+
+
 def detail(request, pk):
     recipe = get_object_or_404(Recipe.objects.select_related("source"), pk=pk)
     return render(request, "recipes/detail.html", {"recipe": recipe})
@@ -112,6 +140,20 @@ def data_export(request):
     )
     response["Content-Disposition"] = f'attachment; filename="rezeptinger-{timestamp}.json"'
     return response
+
+
+def queue_status(request):
+    status = get_queue_status()
+    sources = RecipeSource.objects.filter(
+        status__in=[
+            RecipeSource.Status.PROCESSING,
+            RecipeSource.Status.FAILED,
+            RecipeSource.Status.CANCELLED,
+        ]
+    )
+    if "application/json" in request.headers.get("Accept", ""):
+        return JsonResponse(status)
+    return render(request, "recipes/queue_status.html", {"status": status, "sources": sources})
 
 
 # Intentional for local/headless import via curl and shortcuts; this app has no user accounts.

@@ -1,0 +1,57 @@
+{% extends "recipes/base.html" %}
+
+{% block title %}Queue · Rezeptinger{% endblock %}
+
+{% block content %}
+  <section class="detail">
+    <div>
+      <a class="muted-link" href="{% url 'recipes:index' %}">← Katalog</a>
+      <h1>Queue Status.</h1>
+    </div>
+
+    <div class="facts">
+      <div><span>Wartend</span><strong>{{ status.pending }}</strong></div>
+      <div><span>Geplant</span><strong>{{ status.scheduled }}</strong></div>
+      <div><span>Resultate</span><strong>{{ status.results }}</strong></div>
+      <div><span>Quellen in Arbeit</span><strong>{{ status.processing_sources }}</strong></div>
+      <div><span>Fehlgeschlagen</span><strong>{{ status.failed_sources }}</strong></div>
+      <div><span>Abgebrochen</span><strong>{{ status.cancelled_sources }}</strong></div>
+    </div>
+
+    {% if sources %}
+      <section class="status-list">
+        <h2>Aktive Quellen</h2>
+        <div class="source-grid">
+          {% for source in sources %}
+            <div class="source-item">
+              <a class="source-link" href="{% url 'recipes:source_detail' source.pk %}">
+                <span class="status status-{{ source.status }}">{{ source.get_status_display }}</span>
+                <strong>{{ source.title|default:source.url }}</strong>
+                {% if source.error_message %}
+                  <small>{{ source.error_message|truncatechars:140 }}</small>
+                {% endif %}
+              </a>
+              {% if source.status == "processing" %}
+                <form action="{% url 'recipes:cancel_source' source.pk %}" method="post">
+                  {% csrf_token %}
+                  <button class="secondary-button" type="submit">Abbrechen</button>
+                </form>
+              {% elif source.status == "failed" or source.status == "cancelled" %}
+                <form action="{% url 'recipes:delete_source' source.pk %}" method="post">
+                  {% csrf_token %}
+                  <button class="danger-button" type="submit">Entfernen</button>
+                </form>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="tool-panel">
+      <h2>JSON</h2>
+      <p>Für Automationen kann derselbe Endpunkt mit JSON-Accept-Header abgefragt werden.</p>
+      <pre class="transcript">curl -H 'Accept: application/json' http://127.0.0.1:8000{% url 'recipes:queue_status' %}</pre>
+    </section>
+  </section>
+{% endblock %}

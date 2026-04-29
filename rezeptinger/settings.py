@@ -14,6 +14,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "huey.contrib.djhuey",
     "recipes",
 ]
 
@@ -70,4 +71,11 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LM_STUDIO_BASE_URL = "http://localhost:1234/v1"
-LM_STUDIO_MODEL = ""
+LM_STUDIO_MODEL = "google/gemma-4-e2b"
+
+HUEY = {
+    "huey_class": "huey.SqliteHuey",
+    "name": "rezeptinger",
+    "filename": os.environ.get("HUEY_SQLITE_PATH", BASE_DIR / "huey.sqlite3"),
+    "immediate": os.environ.get("HUEY_IMMEDIATE", "").lower() in {"1", "true", "yes"},
+}

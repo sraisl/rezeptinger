@@ -8,6 +8,7 @@ class RecipeSource(models.Model):
         PROCESSING = "processing", "Wird verarbeitet"
         DONE = "done", "Fertig"
         FAILED = "failed", "Fehlgeschlagen"
+        CANCELLED = "cancelled", "Abgebrochen"
 
     url = models.URLField(unique=True)
     title = models.CharField(max_length=255, blank=True)
@@ -17,6 +18,7 @@ class RecipeSource(models.Model):
     transcript = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     error_message = models.TextField(blank=True)
+    queue_task_id = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

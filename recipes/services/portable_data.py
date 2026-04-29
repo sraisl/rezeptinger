@@ -43,6 +43,7 @@ def import_catalog(payload: dict[str, Any]) -> dict[str, int]:
                 "transcript": source_payload.get("transcript", ""),
                 "status": _source_status(source_payload.get("status")),
                 "error_message": source_payload.get("error_message", ""),
+                "queue_task_id": source_payload.get("queue_task_id", ""),
             },
         )
         _restore_timestamps(source, source_payload)
@@ -84,6 +85,7 @@ def _source_to_payload(source: RecipeSource) -> dict[str, Any]:
         "transcript": source.transcript,
         "status": source.status,
         "error_message": source.error_message,
+        "queue_task_id": source.queue_task_id,
         "created_at": source.created_at.isoformat(),
         "updated_at": source.updated_at.isoformat(),
         "recipe": None,

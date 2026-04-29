@@ -28,6 +28,8 @@
           Die Quelle wartet auf Verarbeitung.
         {% elif source.status == "done" %}
           Die Extraktion ist abgeschlossen.
+        {% elif source.status == "cancelled" %}
+          Die Extraktion wurde abgebrochen.
         {% elif source.error_message %}
           {{ source.error_message }}
         {% endif %}
@@ -36,6 +38,20 @@
         <form id="retry-form" action="{% url 'recipes:retry_source' source.pk %}" method="post">
           {% csrf_token %}
           <button type="submit">Erneut versuchen</button>
+        </form>
+        <form action="{% url 'recipes:delete_source' source.pk %}" method="post">
+          {% csrf_token %}
+          <button class="danger-button" type="submit">Entfernen</button>
+        </form>
+      {% elif source.status == "processing" %}
+        <form action="{% url 'recipes:cancel_source' source.pk %}" method="post">
+          {% csrf_token %}
+          <button class="secondary-button" type="submit">Abbrechen</button>
+        </form>
+      {% elif source.status == "cancelled" %}
+        <form action="{% url 'recipes:delete_source' source.pk %}" method="post">
+          {% csrf_token %}
+          <button class="danger-button" type="submit">Entfernen</button>
         </form>
       {% else %}
         <form
@@ -67,7 +83,7 @@
       const retryForm = document.querySelector("#retry-form");
       let currentStatus = container.dataset.initialStatus;
 
-      const terminalStatuses = new Set(["done", "failed"]);
+      const terminalStatuses = new Set(["done", "failed", "cancelled"]);
       if (terminalStatuses.has(currentStatus)) return;
 
       async function pollStatus() {
@@ -88,6 +104,11 @@
         if (data.status === "failed") {
           text.textContent = data.error_message || "Die Extraktion ist fehlgeschlagen.";
           retryForm.classList.remove("hidden");
+          return;
+        }
+
+        if (data.status === "cancelled") {
+          text.textContent = data.error_message || "Die Extraktion wurde abgebrochen.";
           return;
         }
 

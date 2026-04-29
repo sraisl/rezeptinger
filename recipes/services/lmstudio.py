@@ -50,7 +50,9 @@ def extract_recipe(video_title: str, channel: str, transcript: str) -> dict[str,
         content = response.json()["choices"][0]["message"]["content"]
         data = _parse_json_content(content)
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-        raise RecipeExtractionError("LM Studio hat keine valide JSON-Antwort geliefert.") from exc
+        excerpt = _response_content_excerpt(response)
+        message = f"LM Studio hat keine valide JSON-Antwort geliefert. Antwortauszug: {excerpt}"
+        raise RecipeExtractionError(message) from exc
 
     return _normalize_recipe_payload(data)
 
@@ -71,10 +73,17 @@ def _resolve_model(base_url: str) -> str:
         )
         raise RecipeExtractionError(message) from exc
 
-    for model in models:
-        model_id = model.get("id") if isinstance(model, dict) else None
-        if model_id:
-            return model_id
+    model_ids = [model.get("id") for model in models if isinstance(model, dict) and model.get("id")]
+    preferred = [
+        model_id
+        for model_id in model_ids
+        if any(marker in model_id.lower() for marker in ("instruct", "chat", "qwen", "mistral"))
+        and "embedding" not in model_id.lower()
+    ]
+    if preferred:
+        return preferred[0]
+    if model_ids:
+        return model_ids[0]
 
     raise RecipeExtractionError(
         "LM Studio meldet keine geladenen Modelle. "
@@ -108,13 +117,41 @@ def _response_error_detail(response: httpx.Response) -> str:
 
 
 def _parse_json_content(content: str) -> dict[str, Any]:
+    content = content.strip()
     try:
-        return json.loads(content)
+        parsed = json.loads(content)
+        if isinstance(parsed, str):
+            return _parse_json_content(parsed)
+        if isinstance(parsed, dict):
+            return parsed
     except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", content, flags=re.DOTALL)
-        if not match:
-            raise
-        return json.loads(match.group(0))
+        pass
+
+    fenced = re.search(r"```(?:json)?\s*(.*?)```", content, flags=re.DOTALL | re.IGNORECASE)
+    if fenced:
+        return _parse_json_content(fenced.group(1))
+
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(content):
+        if char != "{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(content[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+
+    raise json.JSONDecodeError("No JSON object found", content, 0)
+
+
+def _response_content_excerpt(response: httpx.Response) -> str:
+    try:
+        content = response.json()["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError, ValueError):
+        content = response.text
+    content = re.sub(r"\s+", " ", str(content)).strip()
+    return content[:500] or "leer"
 
 
 def _build_prompt(video_title: str, channel: str, transcript: str) -> str:

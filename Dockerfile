@@ -8,6 +8,7 @@ ENV DJANGO_SETTINGS_MODULE=rezeptinger.settings \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
+    HUEY_SQLITE_PATH=/data/huey.sqlite3 \
     SQLITE_DATABASE_PATH=/data/db.sqlite3 \
     UV_LINK_MODE=copy
 
