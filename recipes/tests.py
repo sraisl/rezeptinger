@@ -28,6 +28,7 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Rezeptinger")
         self.assertContains(response, "YouTube URL")
+        self.assertContains(response, "Text direkt extrahieren")
 
     def test_failed_source_shows_retry_button(self):
         RecipeSource.objects.create(
@@ -129,6 +130,26 @@ class RecipeViewsTests(TestCase):
         self.assertFalse(RecipeSource.objects.exists())
         enqueue.assert_not_called()
 
+    def test_create_text_source_enqueues_direct_text(self):
+        from unittest.mock import patch
+
+        with patch("recipes.views.enqueue_source_processing") as enqueue:
+            response = self.client.post(
+                reverse("recipes:create_text_source"),
+                data={
+                    "title": "Omas Suppe",
+                    "text": "Zwiebeln anbraten, Gemüse dazugeben und alles weich kochen.",
+                },
+            )
+
+        source = RecipeSource.objects.get(source_type=RecipeSource.SourceType.TEXT)
+        self.assertRedirects(response, reverse("recipes:source_detail", kwargs={"pk": source.pk}))
+        self.assertEqual(source.title, "Omas Suppe")
+        self.assertEqual(source.channel, "Direkte Eingabe")
+        self.assertTrue(source.url.startswith("text://"))
+        self.assertIn("Gemüse", source.transcript)
+        enqueue.assert_called_once_with(source)
+
     def test_cancel_processing_source_marks_cancelled_and_revokes_task(self):
         source = RecipeSource.objects.create(
             url="https://www.youtube.com/watch?v=cancel",
@@ -221,6 +242,7 @@ class RecipeViewsTests(TestCase):
         data = json_loads(response.content)
         self.assertEqual(data["format"], "rezeptinger.catalog")
         self.assertEqual(data["version"], 2)
+        self.assertEqual(data["sources"][0]["source_type"], RecipeSource.SourceType.YOUTUBE)
         self.assertEqual(data["sources"][0]["recipe"]["title"], "Export Pasta")
         self.assertEqual(data["sources"][0]["recipe"]["tags"], ["Pasta", "Quick"])
 
@@ -319,6 +341,26 @@ class RecipeViewsTests(TestCase):
         recipe = Recipe.objects.get(source__url="https://www.youtube.com/watch?v=import-v1")
         self.assertEqual(list(recipe.tags.all()), [])
 
+    def test_data_import_restores_text_source_type(self):
+        payload = _catalog_payload(
+            url="text://import-text",
+            title="Import Text",
+            recipe_title="Text Rezept",
+        )
+        payload["version"] = 2
+        payload["sources"][0]["source_type"] = RecipeSource.SourceType.TEXT
+
+        response = self.client.post(
+            reverse("recipes:data_import"),
+            data=payload,
+            content_type="application/json",
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        source = RecipeSource.objects.get(url="text://import-text")
+        self.assertEqual(source.source_type, RecipeSource.SourceType.TEXT)
+
     def test_import_payload_migrates_version_one_to_current_shape(self):
         payload = _catalog_payload(
             url="https://www.youtube.com/watch?v=migrate-v1",
@@ -329,6 +371,7 @@ class RecipeViewsTests(TestCase):
         migrated = migrate_import_payload(payload)
 
         self.assertEqual(migrated["version"], 2)
+        self.assertEqual(migrated["sources"][0]["source_type"], RecipeSource.SourceType.YOUTUBE)
         self.assertEqual(migrated["sources"][0]["recipe"]["tags"], [])
 
     def test_import_payload_leaves_version_two_tags_unchanged(self):
@@ -763,6 +806,55 @@ class ExtractionTests(TestCase):
         self.assertEqual(attempt.status, ExtractionAttempt.Status.FAILED)
         self.assertEqual(attempt.error_details, "Kein Rezept.")
         self.assertEqual(attempt.lm_studio_model, "test-model")
+
+    def test_process_text_source_creates_recipe_without_youtube_fetch(self):
+        source = RecipeSource.objects.create(
+            source_type=RecipeSource.SourceType.TEXT,
+            url="text://manual",
+            title="Manueller Text",
+            channel="Direkte Eingabe",
+            transcript="Pasta mit Tomaten kochen und servieren.",
+        )
+        payload = {
+            "is_recipe": True,
+            "title": "Text Pasta",
+            "summary": "Aus direktem Text.",
+            "servings": "",
+            "prep_time": "",
+            "cook_time": "",
+            "total_time": "",
+            "ingredients": [{"quantity": "", "unit": "", "name": "Pasta"}],
+            "steps": ["Kochen."],
+            "notes": [],
+            "tags": [],
+            "confidence": 0.7,
+        }
+
+        from unittest.mock import patch
+
+        with (
+            patch("recipes.services.extractor.fetch_video") as fetch,
+            patch(
+                "recipes.services.extractor.extract_recipe_result",
+                return_value=RecipeExtractionResult(
+                    payload=payload,
+                    lm_studio_model="test-model",
+                    prompt_version="test-prompt",
+                    raw_response='{"title": "Text Pasta"}',
+                ),
+            ) as extract,
+        ):
+            process_source(source)
+
+        source.refresh_from_db()
+        self.assertEqual(source.status, RecipeSource.Status.DONE)
+        self.assertEqual(source.recipe.title, "Text Pasta")
+        fetch.assert_not_called()
+        extract.assert_called_once_with(
+            "Manueller Text",
+            "Direkte Eingabe",
+            "Pasta mit Tomaten kochen und servieren.",
+        )
 
     def test_process_source_marks_repeated_video_as_failed_without_extraction(self):
         existing_source = RecipeSource.objects.create(

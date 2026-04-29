@@ -25,6 +25,10 @@ class AppSettings(models.Model):
 
 
 class RecipeSource(models.Model):
+    class SourceType(models.TextChoices):
+        YOUTUBE = "youtube", "YouTube"
+        TEXT = "text", "Text"
+
     class Status(models.TextChoices):
         PENDING = "pending", "Wartet"
         PROCESSING = "processing", "Wird verarbeitet"
@@ -32,6 +36,11 @@ class RecipeSource(models.Model):
         FAILED = "failed", "Fehlgeschlagen"
         CANCELLED = "cancelled", "Abgebrochen"
 
+    source_type = models.CharField(
+        max_length=20,
+        choices=SourceType.choices,
+        default=SourceType.YOUTUBE,
+    )
     url = models.URLField(unique=True)
     title = models.CharField(max_length=255, blank=True)
     channel = models.CharField(max_length=255, blank=True)

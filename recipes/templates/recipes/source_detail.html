@@ -10,7 +10,11 @@
   >
     <a class="muted-link" href="{% url 'recipes:index' %}">← Katalog</a>
     <h1>{{ source.title|default:"Quelle" }}</h1>
-    <p><a href="{{ source.url }}" target="_blank" rel="noreferrer">{{ source.url }}</a></p>
+    {% if source.source_type == "text" %}
+      <p>Direkte Texteingabe</p>
+    {% else %}
+      <p><a href="{{ source.url }}" target="_blank" rel="noreferrer">{{ source.url }}</a></p>
+    {% endif %}
 
     <div class="source-panel">
       <div class="status-row">

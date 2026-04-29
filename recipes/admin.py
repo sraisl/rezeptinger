@@ -65,8 +65,8 @@ class AppSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(RecipeSource)
 class RecipeSourceAdmin(admin.ModelAdmin):
-    list_display = ("title", "channel", "status", "created_at")
-    list_filter = ("status", "created_at")
+    list_display = ("title", "source_type", "channel", "status", "created_at")
+    list_filter = ("source_type", "status", "created_at")
     search_fields = ("title", "channel", "url", "video_id")
 
 

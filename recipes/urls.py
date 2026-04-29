@@ -15,6 +15,7 @@ urlpatterns = [
     path("data/import/", views.data_import, name="data_import"),
     path("queue/status/", views.queue_status, name="queue_status"),
     path("sources/", views.create_source, name="create_source"),
+    path("sources/text/", views.create_text_source, name="create_text_source"),
     path("sources/<int:pk>/", views.source_detail, name="source_detail"),
     path("sources/<int:pk>/status/", views.source_status, name="source_status"),
     path("sources/<int:pk>/retry/", views.retry_source, name="retry_source"),

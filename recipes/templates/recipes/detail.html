@@ -87,7 +87,11 @@
     {% endif %}
 
     <footer class="source-footer">
-      <a href="{{ recipe.source.url }}" target="_blank" rel="noreferrer">Originalvideo öffnen</a>
+      {% if recipe.source.source_type == "text" %}
+        <span>Direkte Texteingabe</span>
+      {% else %}
+        <a href="{{ recipe.source.url }}" target="_blank" rel="noreferrer">Originalvideo öffnen</a>
+      {% endif %}
       <span>{{ recipe.source.title }}</span>
     </footer>
   </article>

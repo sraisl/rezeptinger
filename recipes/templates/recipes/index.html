@@ -19,6 +19,26 @@
     </form>
   </section>
 
+  <section class="tool-panel text-source-panel">
+    <h2>Text direkt extrahieren</h2>
+    <form class="edit-form" action="{% url 'recipes:create_text_source' %}" method="post">
+      {% csrf_token %}
+      <div class="form-grid single-column">
+        <label>
+          <span>{{ text_form.title.label }}</span>
+          {{ text_form.title }}
+          {{ text_form.title.errors }}
+        </label>
+        <label>
+          <span>{{ text_form.text.label }}</span>
+          {{ text_form.text }}
+          {{ text_form.text.errors }}
+        </label>
+      </div>
+      <button type="submit">Text extrahieren</button>
+    </form>
+  </section>
+
   <section class="search-row">
     <form method="get" class="search-form">
       {% if selected_tag %}

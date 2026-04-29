@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add support for sources beyond YouTube, such as regular recipe pages and direct text/transcript input.
+- [ ] Add support for regular recipe page URLs beyond YouTube.
 
 ## Product
 
@@ -29,6 +29,7 @@
 
 ## Done
 
+- [x] Add direct text/transcript input as a non-YouTube extraction source.
 - [x] Add optional gzip-compressed catalog exports and imports.
 - [x] Add import payload migrations that normalize older export versions to the current shape.
 - [x] Add schema checks for import format, supported versions, and source list shape.

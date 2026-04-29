@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -34,7 +36,7 @@ def process_source(source: RecipeSource) -> RecipeSource:
     source.save(update_fields=["status", "error_message", "updated_at"])
 
     try:
-        video = fetch_video(source.url)
+        video = _source_video_payload(source)
         source.refresh_from_db()
         if source.status == RecipeSource.Status.CANCELLED:
             _finish_attempt(
@@ -140,6 +142,29 @@ def process_source(source: RecipeSource) -> RecipeSource:
         _finish_attempt(attempt, ExtractionAttempt.Status.FAILED, str(exc))
 
     return source
+
+
+def _source_video_payload(source: RecipeSource):
+    if source.source_type == RecipeSource.SourceType.TEXT:
+        return _TextVideoPayload(
+            url=source.url,
+            video_id="",
+            title=source.title or "Eingefügter Rezepttext",
+            channel=source.channel or "Direkte Eingabe",
+            thumbnail_url="",
+            transcript=source.transcript,
+        )
+    return fetch_video(source.url)
+
+
+@dataclass(frozen=True)
+class _TextVideoPayload:
+    url: str
+    video_id: str
+    title: str
+    channel: str
+    thumbnail_url: str
+    transcript: str
 
 
 def _replace_recipe_tags(recipe: Recipe, tag_names: list[str]) -> None:

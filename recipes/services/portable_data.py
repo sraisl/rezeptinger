@@ -36,6 +36,7 @@ def import_catalog(payload: dict[str, Any]) -> dict[str, int]:
         source, _ = RecipeSource.objects.update_or_create(
             url=source_payload["url"],
             defaults={
+                "source_type": _source_type(source_payload.get("source_type")),
                 "title": source_payload.get("title", ""),
                 "channel": source_payload.get("channel", ""),
                 "video_id": source_payload.get("video_id", ""),
@@ -122,11 +123,15 @@ def _migrate_source_payload(source_payload: Any) -> Any:
         return source_payload
 
     recipe_payload = source_payload.get("recipe")
+    migrated_source = {
+        **source_payload,
+        "source_type": source_payload.get("source_type") or RecipeSource.SourceType.YOUTUBE,
+    }
     if not isinstance(recipe_payload, dict):
-        return source_payload
+        return migrated_source
 
     return {
-        **source_payload,
+        **migrated_source,
         "recipe": {
             **recipe_payload,
             "tags": _list_value(recipe_payload.get("tags")),
@@ -137,6 +142,7 @@ def _migrate_source_payload(source_payload: Any) -> Any:
 def _source_to_payload(source: RecipeSource) -> dict[str, Any]:
     payload = {
         "url": source.url,
+        "source_type": source.source_type,
         "title": source.title,
         "channel": source.channel,
         "video_id": source.video_id,
@@ -175,6 +181,11 @@ def _recipe_to_payload(recipe: Recipe) -> dict[str, Any]:
 def _source_status(value: str | None) -> str:
     allowed = {choice.value for choice in RecipeSource.Status}
     return value if value in allowed else RecipeSource.Status.PENDING
+
+
+def _source_type(value: str | None) -> str:
+    allowed = {choice.value for choice in RecipeSource.SourceType}
+    return value if value in allowed else RecipeSource.SourceType.YOUTUBE
 
 
 def _list_value(value: Any) -> list[Any]:

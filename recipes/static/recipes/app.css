@@ -246,6 +246,10 @@ button:hover {
   gap: 12px;
 }
 
+.text-source-panel {
+  margin-bottom: 28px;
+}
+
 .edit-form {
   display: grid;
   gap: 18px;

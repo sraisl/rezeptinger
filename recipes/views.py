@@ -1,5 +1,6 @@
 import gzip
 import json
+import uuid
 from urllib.parse import urlparse
 
 from django.contrib import messages
@@ -9,7 +10,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .forms import RecipeEditForm, RecipeSourceForm
+from .forms import RecipeEditForm, RecipeSourceForm, TextSourceForm
 from .models import Recipe, RecipeSource, Tag
 from .services.duplicates import find_duplicate_video_recipe, find_similar_recipes
 from .services.extractor import enqueue_source_processing
@@ -40,6 +41,7 @@ def index(request):
         "recipes/index.html",
         {
             "form": RecipeSourceForm(),
+            "text_form": TextSourceForm(),
             "recipes": recipes,
             "sources": sources,
             "query": query,
@@ -53,11 +55,19 @@ def index(request):
 def create_source(request):
     form = RecipeSourceForm(request.POST)
     if not form.is_valid():
-        recipes = Recipe.objects.select_related("source")
+        recipes = Recipe.objects.select_related("source").prefetch_related("tags")
         return render(
             request,
             "recipes/index.html",
-            {"form": form, "recipes": recipes, "sources": []},
+            {
+                "form": form,
+                "text_form": TextSourceForm(),
+                "recipes": recipes,
+                "sources": [],
+                "query": "",
+                "tags": Tag.objects.filter(recipes__isnull=False).distinct(),
+                "selected_tag": None,
+            },
         )
 
     source, created = RecipeSource.objects.get_or_create(url=form.cleaned_data["url"])
@@ -70,6 +80,38 @@ def create_source(request):
 
     enqueue_source_processing(source)
     messages.info(request, "Extraktion gestartet.")
+    return redirect("recipes:source_detail", pk=source.pk)
+
+
+@require_http_methods(["POST"])
+def create_text_source(request):
+    form = TextSourceForm(request.POST)
+    if not form.is_valid():
+        recipes = Recipe.objects.select_related("source").prefetch_related("tags")
+        return render(
+            request,
+            "recipes/index.html",
+            {
+                "form": RecipeSourceForm(),
+                "text_form": form,
+                "recipes": recipes,
+                "sources": [],
+                "query": "",
+                "tags": Tag.objects.filter(recipes__isnull=False).distinct(),
+                "selected_tag": None,
+            },
+        )
+
+    title = form.cleaned_data["title"].strip() or "Eingefügter Rezepttext"
+    source = RecipeSource.objects.create(
+        source_type=RecipeSource.SourceType.TEXT,
+        url=f"text://{uuid.uuid4()}",
+        title=title,
+        channel="Direkte Eingabe",
+        transcript=form.cleaned_data["text"],
+    )
+    enqueue_source_processing(source)
+    messages.info(request, "Textextraktion gestartet.")
     return redirect("recipes:source_detail", pk=source.pk)
 
 

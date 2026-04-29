@@ -19,6 +19,25 @@ class RecipeSourceForm(forms.ModelForm):
         }
 
 
+class TextSourceForm(forms.Form):
+    title = forms.CharField(
+        label="Titel",
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={"placeholder": "z.B. Familienrezept oder Transkript"}),
+    )
+    text = forms.CharField(
+        label="Text oder Transkript",
+        min_length=20,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 8,
+                "placeholder": "Rezepttext, Notizen oder ein Transkript einfügen...",
+            }
+        ),
+    )
+
+
 class RecipeEditForm(forms.ModelForm):
     tags = forms.ModelMultipleChoiceField(
         label="Tags",
