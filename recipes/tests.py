@@ -1,4 +1,7 @@
+import gzip
+
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -221,6 +224,22 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(data["sources"][0]["recipe"]["title"], "Export Pasta")
         self.assertEqual(data["sources"][0]["recipe"]["tags"], ["Pasta", "Quick"])
 
+    def test_data_export_can_return_compressed_catalog_json(self):
+        source = RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=export-gzip",
+            status=RecipeSource.Status.DONE,
+        )
+        Recipe.objects.create(source=source, title="Export Gzip")
+
+        response = self.client.get(reverse("recipes:data_export"), {"compressed": "1"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/gzip")
+        self.assertIn(".json.gz", response["Content-Disposition"])
+        data = json_loads(gzip.decompress(response.content))
+        self.assertEqual(data["version"], 2)
+        self.assertEqual(data["sources"][0]["recipe"]["title"], "Export Gzip")
+
     def test_data_import_creates_source_and_recipe_from_json(self):
         payload = _catalog_payload(
             url="https://www.youtube.com/watch?v=import",
@@ -239,6 +258,28 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.json()["imported"], {"sources": 1, "recipes": 1})
         source = RecipeSource.objects.get(url="https://www.youtube.com/watch?v=import")
         self.assertEqual(source.recipe.title, "Import Pasta")
+
+    def test_data_import_accepts_compressed_json_file(self):
+        payload = _catalog_payload(
+            url="https://www.youtube.com/watch?v=import-gzip",
+            title="Import Gzip",
+            recipe_title="Import Gzip Pasta",
+        )
+        uploaded = SimpleUploadedFile(
+            "rezeptinger.json.gz",
+            gzip.compress(json_dumps(payload)),
+            content_type="application/gzip",
+        )
+
+        response = self.client.post(
+            reverse("recipes:data_import"),
+            data={"file": uploaded},
+            HTTP_ACCEPT="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        source = RecipeSource.objects.get(url="https://www.youtube.com/watch?v=import-gzip")
+        self.assertEqual(source.recipe.title, "Import Gzip Pasta")
 
     def test_data_import_restores_recipe_tags(self):
         payload = _catalog_payload(
@@ -1100,6 +1141,12 @@ def json_loads(content):
     import json
 
     return json.loads(content.decode("utf-8"))
+
+
+def json_dumps(payload: dict) -> bytes:
+    import json
+
+    return json.dumps(payload).encode("utf-8")
 
 
 def _catalog_payload(url: str, title: str, recipe_title: str) -> dict:

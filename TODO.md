@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add optional compressed exports and imports.
+- [ ] Add support for sources beyond YouTube, such as regular recipe pages and direct text/transcript input.
 
 ## Product
 
@@ -10,7 +10,6 @@
 
 ## Extraction
 
-- [ ] Add support for sources beyond YouTube, such as regular recipe pages and direct text/transcript input.
 - [ ] Add a fallback for videos without captions by extracting audio and running local speech-to-text, for example Whisper.cpp or faster-whisper.
 - [ ] Improve prompt/version handling so extraction behavior is reproducible.
 
@@ -30,6 +29,7 @@
 
 ## Done
 
+- [x] Add optional gzip-compressed catalog exports and imports.
 - [x] Add import payload migrations that normalize older export versions to the current shape.
 - [x] Add schema checks for import format, supported versions, and source list shape.
 - [x] Export and import recipe tags in catalog JSON version 2 while keeping version 1 imports compatible.

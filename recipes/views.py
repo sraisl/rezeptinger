@@ -1,3 +1,4 @@
+import gzip
 import json
 from urllib.parse import urlparse
 
@@ -198,8 +199,16 @@ def bookmarklet_capture(request):
 def data_export(request):
     payload = export_catalog()
     timestamp = timezone.now().strftime("%Y%m%d-%H%M%S")
+    raw_payload = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    if request.GET.get("compressed") in {"1", "true", "yes"}:
+        response = HttpResponse(gzip.compress(raw_payload), content_type="application/gzip")
+        response["Content-Disposition"] = (
+            f'attachment; filename="rezeptinger-{timestamp}.json.gz"'
+        )
+        return response
+
     response = HttpResponse(
-        json.dumps(payload, ensure_ascii=False, indent=2),
+        raw_payload,
         content_type="application/json",
     )
     response["Content-Disposition"] = f'attachment; filename="rezeptinger-{timestamp}.json"'
@@ -282,10 +291,14 @@ def _request_payload(request) -> dict:
 def _import_payload(request) -> dict:
     uploaded = request.FILES.get("file")
     if uploaded:
-        raw = uploaded.read().decode("utf-8")
-        return json.loads(raw)
+        raw_bytes = uploaded.read()
+    else:
+        raw_bytes = request.body or b"{}"
 
-    return json.loads(request.body or "{}")
+    if raw_bytes.startswith(b"\x1f\x8b"):
+        raw_bytes = gzip.decompress(raw_bytes)
+
+    return json.loads(raw_bytes.decode("utf-8"))
 
 
 def _wants_json(request) -> bool:
