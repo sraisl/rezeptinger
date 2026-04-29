@@ -1,0 +1,91 @@
+{% extends "recipes/base.html" %}
+
+{% block title %}Rezeptinger · Katalog{% endblock %}
+
+{% block content %}
+  <section class="intro">
+    <div>
+      <p class="eyebrow">YouTube rein, Rezept raus</p>
+      <h1>Rezepte aus Videos extrahieren und wiederfinden.</h1>
+    </div>
+    <form class="url-form" action="{% url 'recipes:create_source' %}" method="post">
+      {% csrf_token %}
+      <label class="sr-only" for="{{ form.url.id_for_label }}">YouTube URL</label>
+      {{ form.url }}
+      {% if form.url.errors %}
+        <div class="field-error">{{ form.url.errors|join:", " }}</div>
+      {% endif %}
+      <button type="submit">Extrahieren</button>
+    </form>
+  </section>
+
+  <section class="search-row">
+    <form method="get" class="search-form">
+      <input name="q" value="{{ query }}" placeholder="Katalog durchsuchen">
+      <button type="submit">Suchen</button>
+      {% if query %}
+        <a class="muted-link" href="{% url 'recipes:index' %}">Zurücksetzen</a>
+      {% endif %}
+    </form>
+  </section>
+
+  {% if sources %}
+    <section class="status-list">
+      <h2>Quellen mit Status</h2>
+      <div class="source-grid">
+        {% for source in sources %}
+          <div class="source-item">
+            <a class="source-link" href="{% url 'recipes:source_detail' source.pk %}">
+              <span class="status status-{{ source.status }}">{{ source.get_status_display }}</span>
+              <strong>{{ source.title|default:source.url }}</strong>
+              {% if source.error_message %}
+                <small>{{ source.error_message|truncatechars:140 }}</small>
+              {% endif %}
+            </a>
+            {% if source.status == "failed" %}
+              <form action="{% url 'recipes:retry_source' source.pk %}" method="post">
+                {% csrf_token %}
+                <button class="secondary-button" type="submit">Erneut versuchen</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  <section>
+    <div class="section-title">
+      <h2>Katalog</h2>
+      <span>{{ recipes|length }} Rezept{{ recipes|length|pluralize:"e" }}</span>
+    </div>
+
+    {% if recipes %}
+      <div class="recipe-grid">
+        {% for recipe in recipes %}
+          <a class="recipe-card" href="{{ recipe.get_absolute_url }}">
+            {% if recipe.source.thumbnail_url %}
+              <img src="{{ recipe.source.thumbnail_url }}" alt="">
+            {% endif %}
+            <div class="recipe-card-body">
+              <span>{{ recipe.source.channel|default:"YouTube" }}</span>
+              <h3>{{ recipe.title }}</h3>
+              {% if recipe.summary %}
+                <p>{{ recipe.summary|truncatechars:150 }}</p>
+              {% endif %}
+              <div class="meta-line">
+                {% if recipe.total_time %}<small>{{ recipe.total_time }}</small>{% endif %}
+                {% if recipe.servings %}<small>{{ recipe.servings }}</small>{% endif %}
+              </div>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <h3>Noch keine Rezepte</h3>
+        <p>Füge eine YouTube-URL ein, während LM Studio lokal läuft.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

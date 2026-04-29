@@ -1,0 +1,32 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Rezeptinger{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'recipes/app.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'recipes:index' %}">Rezeptinger</a>
+    <nav>
+      <a href="{% url 'recipes:index' %}">Katalog</a>
+      <a href="{% url 'recipes:data_tools' %}">Daten</a>
+      <a href="/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+          <div class="message message-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

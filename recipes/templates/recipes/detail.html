@@ -1,0 +1,72 @@
+{% extends "recipes/base.html" %}
+
+{% block title %}{{ recipe.title }} · Rezeptinger{% endblock %}
+
+{% block content %}
+  <article class="detail">
+    <header class="detail-header">
+      <div>
+        <a class="muted-link" href="{% url 'recipes:index' %}">← Katalog</a>
+        <h1>{{ recipe.title }}</h1>
+        {% if recipe.summary %}<p>{{ recipe.summary }}</p>{% endif %}
+      </div>
+      {% if recipe.source.thumbnail_url %}
+        <img src="{{ recipe.source.thumbnail_url }}" alt="">
+      {% endif %}
+    </header>
+
+    <div class="facts">
+      {% if recipe.servings %}<div><span>Portionen</span><strong>{{ recipe.servings }}</strong></div>{% endif %}
+      {% if recipe.prep_time %}<div><span>Vorbereitung</span><strong>{{ recipe.prep_time }}</strong></div>{% endif %}
+      {% if recipe.cook_time %}<div><span>Kochen</span><strong>{{ recipe.cook_time }}</strong></div>{% endif %}
+      {% if recipe.total_time %}<div><span>Gesamt</span><strong>{{ recipe.total_time }}</strong></div>{% endif %}
+      <div><span>KI-Sicherheit</span><strong>{{ recipe.confidence|floatformat:2 }}</strong></div>
+    </div>
+
+    <div class="detail-grid">
+      <section>
+        <h2>Zutaten</h2>
+        <ul class="ingredients">
+          {% for ingredient in recipe.ingredients %}
+            <li>
+              {% if ingredient.quantity or ingredient.unit %}
+                <strong>{{ ingredient.quantity }} {{ ingredient.unit }}</strong>
+              {% endif %}
+              {{ ingredient.name|default:ingredient }}
+              {% if ingredient.note %}<span>{{ ingredient.note }}</span>{% endif %}
+            </li>
+          {% empty %}
+            <li>Keine Zutaten erkannt.</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Zubereitung</h2>
+        <ol class="steps">
+          {% for step in recipe.steps %}
+            <li>{{ step }}</li>
+          {% empty %}
+            <li>Keine Schritte erkannt.</li>
+          {% endfor %}
+        </ol>
+      </section>
+    </div>
+
+    {% if recipe.notes %}
+      <section>
+        <h2>Notizen</h2>
+        <ul>
+          {% for note in recipe.notes %}
+            <li>{{ note }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    <footer class="source-footer">
+      <a href="{{ recipe.source.url }}" target="_blank" rel="noreferrer">Originalvideo öffnen</a>
+      <span>{{ recipe.source.title }}</span>
+    </footer>
+  </article>
+{% endblock %}

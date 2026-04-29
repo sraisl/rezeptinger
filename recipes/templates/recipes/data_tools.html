@@ -1,0 +1,33 @@
+{% extends "recipes/base.html" %}
+
+{% block title %}Daten · Rezeptinger{% endblock %}
+
+{% block content %}
+  <section class="detail">
+    <div>
+      <a class="muted-link" href="{% url 'recipes:index' %}">← Katalog</a>
+      <h1>Daten importieren und exportieren.</h1>
+    </div>
+
+    <div class="data-grid">
+      <section class="tool-panel">
+        <h2>Export</h2>
+        <p>Speichert Quellen, Transkripte, Status und extrahierte Rezepte als JSON-Datei.</p>
+        <a class="button-link" href="{% url 'recipes:data_export' %}">JSON exportieren</a>
+      </section>
+
+      <section class="tool-panel">
+        <h2>Import</h2>
+        <p>Importiert einen Rezeptinger-JSON-Export. Bestehende Quellen werden anhand der URL aktualisiert.</p>
+        <form action="{% url 'recipes:data_import' %}" method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <label class="file-field">
+            <span>JSON-Datei</span>
+            <input type="file" name="file" accept="application/json,.json" required>
+          </label>
+          <button type="submit">Importieren</button>
+        </form>
+      </section>
+    </div>
+  </section>
+{% endblock %}

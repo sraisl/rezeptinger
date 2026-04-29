@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+import json
+import os
+import re
+from typing import Any
+
+import httpx
+from django.conf import settings
+
+
+class RecipeExtractionError(Exception):
+    pass
+
+
+SYSTEM_PROMPT = """
+Du extrahierst Kochrezepte aus YouTube-Transkripten.
+Antworte ausschließlich als valides JSON-Objekt. Keine Markdown-Blöcke.
+Wenn das Video kein Rezept enthält, setze "is_recipe" auf false.
+Nutze nur Informationen, die im Transkript oder in den Metadaten erkennbar sind.
+Schätze keine exakten Mengen, wenn sie nicht genannt werden.
+""".strip()
+
+
+def extract_recipe(video_title: str, channel: str, transcript: str) -> dict[str, Any]:
+    base_url = os.environ.get("LM_STUDIO_BASE_URL", settings.LM_STUDIO_BASE_URL).rstrip("/")
+    model = _resolve_model(base_url)
+    prompt = _build_prompt(video_title, channel, transcript)
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.1,
+    }
+
+    try:
+        json_payload = {**payload, "response_format": {"type": "json_object"}}
+        response = _post_chat_completion(base_url, json_payload)
+        if response.status_code == 400:
+            response = _post_chat_completion(base_url, payload)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        message = _format_http_error(exc)
+        raise RecipeExtractionError(message) from exc
+
+    try:
+        content = response.json()["choices"][0]["message"]["content"]
+        data = _parse_json_content(content)
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        raise RecipeExtractionError("LM Studio hat keine valide JSON-Antwort geliefert.") from exc
+
+    return _normalize_recipe_payload(data)
+
+
+def _resolve_model(base_url: str) -> str:
+    configured = os.environ.get("LM_STUDIO_MODEL", settings.LM_STUDIO_MODEL).strip()
+    if configured:
+        return configured
+
+    try:
+        response = httpx.get(f"{base_url}/models", timeout=10)
+        response.raise_for_status()
+        models = response.json().get("data", [])
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+        message = (
+            "LM Studio ist erreichbar? Kein Modell konnte automatisch geladen werden. "
+            "Starte LM Studio mit geladenem Modell oder setze LM_STUDIO_MODEL."
+        )
+        raise RecipeExtractionError(message) from exc
+
+    for model in models:
+        model_id = model.get("id") if isinstance(model, dict) else None
+        if model_id:
+            return model_id
+
+    raise RecipeExtractionError(
+        "LM Studio meldet keine geladenen Modelle. "
+        "Lade ein Modell in LM Studio und versuche es erneut."
+    )
+
+
+def _post_chat_completion(base_url: str, payload: dict[str, Any]) -> httpx.Response:
+    return httpx.post(f"{base_url}/chat/completions", json=payload, timeout=120)
+
+
+def _format_http_error(exc: httpx.HTTPError) -> str:
+    if isinstance(exc, httpx.HTTPStatusError):
+        detail = _response_error_detail(exc.response)
+        return f"LM Studio meldet Fehler {exc.response.status_code}: {detail}"
+    return f"LM Studio ist nicht erreichbar oder meldet Fehler: {exc}"
+
+
+def _response_error_detail(response: httpx.Response) -> str:
+    try:
+        payload = response.json()
+    except ValueError:
+        return response.text[:500] or response.reason_phrase
+
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if isinstance(error, dict):
+        return str(error.get("message") or error)
+    if error:
+        return str(error)
+    return str(payload)[:500]
+
+
+def _parse_json_content(content: str) -> dict[str, Any]:
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", content, flags=re.DOTALL)
+        if not match:
+            raise
+        return json.loads(match.group(0))
+
+
+def _build_prompt(video_title: str, channel: str, transcript: str) -> str:
+    transcript = transcript[:30000]
+    return f"""
+Video-Titel: {video_title}
+Kanal: {channel}
+
+Extrahiere ein Rezept in diesem JSON-Schema:
+{{
+  "is_recipe": true,
+  "title": "Name des Rezepts",
+  "summary": "kurze Beschreibung",
+  "servings": "z.B. 4 Portionen oder leer",
+  "prep_time": "Vorbereitungszeit oder leer",
+  "cook_time": "Koch-/Backzeit oder leer",
+  "total_time": "Gesamtzeit oder leer",
+  "ingredients": [
+    {{"quantity": "200", "unit": "g", "name": "Mehl", "note": "optional"}}
+  ],
+  "steps": ["Schritt 1", "Schritt 2"],
+  "notes": ["wichtige Hinweise"],
+  "confidence": 0.0
+}}
+
+Wenn kein Rezept erkennbar ist:
+{{"is_recipe": false, "reason": "kurze Begründung", "confidence": 0.0}}
+
+Transkript:
+{transcript}
+""".strip()
+
+
+def _normalize_recipe_payload(data: dict[str, Any]) -> dict[str, Any]:
+    if not data.get("is_recipe"):
+        return {
+            "is_recipe": False,
+            "reason": str(data.get("reason", "Kein Rezept erkannt.")),
+            "confidence": float(data.get("confidence") or 0.0),
+        }
+
+    return {
+        "is_recipe": True,
+        "title": str(data.get("title") or "Unbenanntes Rezept"),
+        "summary": str(data.get("summary") or ""),
+        "servings": str(data.get("servings") or ""),
+        "prep_time": str(data.get("prep_time") or ""),
+        "cook_time": str(data.get("cook_time") or ""),
+        "total_time": str(data.get("total_time") or ""),
+        "ingredients": _as_list(data.get("ingredients")),
+        "steps": _as_list(data.get("steps")),
+        "notes": _as_list(data.get("notes")),
+        "confidence": max(0.0, min(1.0, float(data.get("confidence") or 0.0))),
+    }
+
+
+def _as_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if value in (None, ""):
+        return []
+    return [value]

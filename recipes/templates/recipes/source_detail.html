@@ -1,0 +1,104 @@
+{% extends "recipes/base.html" %}
+
+{% block title %}Quelle · Rezeptinger{% endblock %}
+
+{% block content %}
+  <section
+    class="detail"
+    data-status-url="{% url 'recipes:source_status' source.pk %}"
+    data-initial-status="{{ source.status }}"
+  >
+    <a class="muted-link" href="{% url 'recipes:index' %}">← Katalog</a>
+    <h1>{{ source.title|default:"Quelle" }}</h1>
+    <p><a href="{{ source.url }}" target="_blank" rel="noreferrer">{{ source.url }}</a></p>
+
+    <div class="source-panel">
+      <div class="status-row">
+        <span id="source-status" class="status status-{{ source.status }}">
+          {{ source.get_status_display }}
+        </span>
+        {% if source.status == "processing" %}
+          <span class="spinner" aria-hidden="true"></span>
+        {% endif %}
+      </div>
+      <p id="source-status-text" class="status-text">
+        {% if source.status == "processing" %}
+          Extraktion läuft. Das kann je nach Video und lokalem Modell etwas dauern.
+        {% elif source.status == "pending" %}
+          Die Quelle wartet auf Verarbeitung.
+        {% elif source.status == "done" %}
+          Die Extraktion ist abgeschlossen.
+        {% elif source.error_message %}
+          {{ source.error_message }}
+        {% endif %}
+      </p>
+      {% if source.status == "failed" %}
+        <form id="retry-form" action="{% url 'recipes:retry_source' source.pk %}" method="post">
+          {% csrf_token %}
+          <button type="submit">Erneut versuchen</button>
+        </form>
+      {% else %}
+        <form
+          id="retry-form"
+          class="hidden"
+          action="{% url 'recipes:retry_source' source.pk %}"
+          method="post"
+        >
+          {% csrf_token %}
+          <button type="submit">Erneut versuchen</button>
+        </form>
+      {% endif %}
+    </div>
+
+    {% if source.transcript %}
+      <h2>Transkript</h2>
+      <pre class="transcript">{{ source.transcript }}</pre>
+    {% endif %}
+  </section>
+
+  <script>
+    (() => {
+      const container = document.querySelector("[data-status-url]");
+      if (!container) return;
+
+      const statusUrl = container.dataset.statusUrl;
+      const badge = document.querySelector("#source-status");
+      const text = document.querySelector("#source-status-text");
+      const retryForm = document.querySelector("#retry-form");
+      let currentStatus = container.dataset.initialStatus;
+
+      const terminalStatuses = new Set(["done", "failed"]);
+      if (terminalStatuses.has(currentStatus)) return;
+
+      async function pollStatus() {
+        const response = await fetch(statusUrl, {headers: {"Accept": "application/json"}});
+        if (!response.ok) return;
+
+        const data = await response.json();
+        currentStatus = data.status;
+        badge.className = `status status-${data.status}`;
+        badge.textContent = data.status_display;
+
+        if (data.status === "done" && data.recipe_url) {
+          text.textContent = "Extraktion abgeschlossen. Rezept wird geöffnet.";
+          window.location.href = data.recipe_url;
+          return;
+        }
+
+        if (data.status === "failed") {
+          text.textContent = data.error_message || "Die Extraktion ist fehlgeschlagen.";
+          retryForm.classList.remove("hidden");
+          return;
+        }
+
+        if (data.status === "processing") {
+          text.textContent = "Extraktion läuft. Das kann je nach Video und lokalem Modell etwas dauern.";
+        }
+
+        window.setTimeout(pollStatus, 1500);
+      }
+
+      window.setTimeout(pollStatus, 800);
+    })();
+  </script>
+{% endblock %}
