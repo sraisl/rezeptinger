@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from recipes.models import Recipe, RecipeSource
+from recipes.models import Recipe, RecipeIngredient, RecipeSource
 from recipes.services import lmstudio
 from recipes.services.extractor import process_source
 from recipes.services.youtube import YouTubeVideo
@@ -193,6 +193,10 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(recipe.title, "Neuer Titel")
         self.assertEqual(recipe.summary, "Manuell verbessert.")
         self.assertEqual(recipe.ingredients[0]["name"], "200 g Pasta")
+        self.assertEqual(
+            list(RecipeIngredient.objects.filter(recipe=recipe).values_list("name", flat=True)),
+            ["200 g Pasta", "Olivenöl"],
+        )
         self.assertEqual(recipe.steps, ["Pasta kochen.", "Alles mischen."])
         self.assertEqual(recipe.notes, ["Mit Parmesan servieren."])
 

@@ -1,6 +1,7 @@
 from django import forms
 
 from .models import Recipe, RecipeSource
+from .services.ingredients import replace_recipe_ingredients
 
 
 class RecipeSourceForm(forms.ModelForm):
@@ -60,17 +61,21 @@ class RecipeEditForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            self.fields["ingredients_text"].initial = ingredients_to_text(self.instance.ingredients)
+            self.fields["ingredients_text"].initial = ingredients_to_text(
+                self.instance.ingredient_payloads()
+            )
             self.fields["steps_text"].initial = lines_to_text(self.instance.steps)
             self.fields["notes_text"].initial = lines_to_text(self.instance.notes)
 
     def save(self, commit=True):
         recipe = super().save(commit=False)
-        recipe.ingredients = text_to_ingredients(self.cleaned_data["ingredients_text"])
+        ingredients = text_to_ingredients(self.cleaned_data["ingredients_text"])
+        recipe.ingredients = ingredients
         recipe.steps = text_to_lines(self.cleaned_data["steps_text"])
         recipe.notes = text_to_lines(self.cleaned_data["notes_text"])
         if commit:
             recipe.save()
+            replace_recipe_ingredients(recipe, ingredients)
         return recipe
 
 

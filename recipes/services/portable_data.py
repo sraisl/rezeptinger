@@ -7,6 +7,8 @@ from django.utils.dateparse import parse_datetime
 
 from recipes.models import Recipe, RecipeSource
 
+from .ingredients import replace_recipe_ingredients
+
 EXPORT_VERSION = 1
 
 
@@ -48,7 +50,7 @@ def import_catalog(payload: dict[str, Any]) -> dict[str, int]:
 
         recipe_payload = source_payload.get("recipe")
         if isinstance(recipe_payload, dict):
-            Recipe.objects.update_or_create(
+            recipe, _ = Recipe.objects.update_or_create(
                 source=source,
                 defaults={
                     "title": recipe_payload.get("title", "Unbenanntes Rezept"),
@@ -63,7 +65,8 @@ def import_catalog(payload: dict[str, Any]) -> dict[str, int]:
                     "confidence": float(recipe_payload.get("confidence") or 0.0),
                 },
             )
-            _restore_timestamps(source.recipe, recipe_payload)
+            replace_recipe_ingredients(recipe, _list_value(recipe_payload.get("ingredients")))
+            _restore_timestamps(recipe, recipe_payload)
             imported_recipes += 1
         elif hasattr(source, "recipe"):
             source.recipe.delete()
@@ -98,7 +101,7 @@ def _recipe_to_payload(recipe: Recipe) -> dict[str, Any]:
         "prep_time": recipe.prep_time,
         "cook_time": recipe.cook_time,
         "total_time": recipe.total_time,
-        "ingredients": recipe.ingredients,
+        "ingredients": recipe.ingredient_payloads(),
         "steps": recipe.steps,
         "notes": recipe.notes,
         "confidence": recipe.confidence,

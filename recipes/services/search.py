@@ -44,6 +44,11 @@ def matching_recipe_ids(query: str) -> list[int]:
 
 def sync_recipe_search_index(recipe: Recipe) -> None:
     try:
+        recipe = (
+            Recipe.objects.select_related("source")
+            .prefetch_related("ingredient_items")
+            .get(pk=recipe.pk)
+        )
         with connection.cursor() as cursor:
             cursor.execute("DELETE FROM recipes_recipe_fts WHERE recipe_id = %s", [recipe.pk])
             cursor.execute(
@@ -56,13 +61,13 @@ def sync_recipe_search_index(recipe: Recipe) -> None:
                 [
                     recipe.pk,
                     recipe.title,
-                    ingredients_text(recipe.ingredients),
+                    ingredients_text(recipe.ingredient_payloads()),
                     list_text(recipe.steps),
                     recipe.source.channel,
                     recipe.source.transcript,
                 ],
             )
-    except OperationalError:
+    except (OperationalError, Recipe.DoesNotExist):
         return
 
 

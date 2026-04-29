@@ -28,7 +28,7 @@
       <section>
         <h2>Zutaten</h2>
         <ul class="ingredients">
-          {% for ingredient in recipe.ingredients %}
+          {% for ingredient in recipe.ingredient_payloads %}
             <li>
               {% if ingredient.quantity or ingredient.unit %}
                 <strong>{{ ingredient.quantity }} {{ ingredient.unit }}</strong>

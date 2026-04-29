@@ -222,7 +222,7 @@ def _recipe_payload(recipe: Recipe) -> dict:
         "prep_time": recipe.prep_time,
         "cook_time": recipe.cook_time,
         "total_time": recipe.total_time,
-        "ingredients": recipe.ingredients,
+        "ingredients": recipe.ingredient_payloads(),
         "steps": recipe.steps,
         "notes": recipe.notes,
         "confidence": recipe.confidence,

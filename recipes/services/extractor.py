@@ -6,6 +6,7 @@ from django.db import close_old_connections, transaction
 
 from recipes.models import Recipe, RecipeSource
 
+from .ingredients import replace_recipe_ingredients
 from .lmstudio import RecipeExtractionError, extract_recipe
 from .youtube import TranscriptUnavailable, fetch_video
 
@@ -50,7 +51,7 @@ def process_source(source: RecipeSource) -> RecipeSource:
                 source.save()
                 return source
 
-            Recipe.objects.update_or_create(
+            recipe, _ = Recipe.objects.update_or_create(
                 source=source,
                 defaults={
                     "title": payload["title"],
@@ -65,6 +66,7 @@ def process_source(source: RecipeSource) -> RecipeSource:
                     "confidence": payload["confidence"],
                 },
             )
+            replace_recipe_ingredients(recipe, payload["ingredients"])
             source.status = RecipeSource.Status.DONE
             source.error_message = ""
             source.save()

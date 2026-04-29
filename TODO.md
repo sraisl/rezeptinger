@@ -14,7 +14,6 @@
 
 ## Search And Data
 
-- [ ] Consider normalizing ingredients into dedicated models once filtering/search needs grow beyond JSON fields.
 - [ ] Make import/export more explicitly versioned with schema checks, export migrations, and optional compressed exports.
 
 ## Extraction

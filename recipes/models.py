@@ -50,3 +50,35 @@ class Recipe(models.Model):
 
     def get_absolute_url(self) -> str:
         return reverse("recipes:detail", kwargs={"pk": self.pk})
+
+    def ingredient_payloads(self) -> list[dict[str, str]]:
+        if self.ingredient_items.exists():
+            return [ingredient.as_payload() for ingredient in self.ingredient_items.all()]
+        return self.ingredients
+
+
+class RecipeIngredient(models.Model):
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name="ingredient_items")
+    position = models.PositiveIntegerField(default=0)
+    quantity = models.CharField(max_length=80, blank=True)
+    unit = models.CharField(max_length=80, blank=True)
+    name = models.CharField(max_length=255)
+    note = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+        indexes = [
+            models.Index(fields=["name"]),
+        ]
+
+    def __str__(self) -> str:
+        amount = " ".join(part for part in (self.quantity, self.unit) if part)
+        return f"{amount} {self.name}".strip()
+
+    def as_payload(self) -> dict[str, str]:
+        return {
+            "quantity": self.quantity,
+            "unit": self.unit,
+            "name": self.name,
+            "note": self.note,
+        }

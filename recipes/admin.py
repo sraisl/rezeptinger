@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from .models import Recipe, RecipeSource
+from .models import Recipe, RecipeIngredient, RecipeSource
+
+
+class RecipeIngredientInline(admin.TabularInline):
+    model = RecipeIngredient
+    extra = 0
 
 
 @admin.register(RecipeSource)
@@ -14,3 +19,4 @@ class RecipeSourceAdmin(admin.ModelAdmin):
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ("title", "servings", "total_time", "confidence", "created_at")
     search_fields = ("title", "summary")
+    inlines = [RecipeIngredientInline]
