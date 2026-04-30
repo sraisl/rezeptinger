@@ -75,6 +75,36 @@ docker run --rm --name rezeptinger-local -p 8000:8000 \
 
 Die App ist danach unter <http://127.0.0.1:8000/> erreichbar.
 
+### Docker Compose
+
+Empfohlen für den lokalen Docker-Betrieb ist Compose. Es baut das lokale Image, bindet Port `8000`
+und speichert SQLite/Huey dauerhaft im benannten Volume `rezeptinger-data`:
+
+```bash
+docker compose up --build
+```
+
+Die App ist danach unter <http://127.0.0.1:8000/> erreichbar.
+
+Wenn Extraktionen verarbeitet werden sollen, starte den optionalen Worker mit:
+
+```bash
+docker compose --profile worker up --build
+```
+
+Logs und Stop:
+
+```bash
+docker compose logs -f
+docker compose down
+```
+
+Das Datenvolume bleibt bei `docker compose down` erhalten. Entferne es nur bewusst:
+
+```bash
+docker compose down -v
+```
+
 ### LM Studio aus Docker erreichen
 
 Im Container ist `localhost` der Container selbst. Für LM Studio auf dem Host nutzt du auf Docker Desktop:

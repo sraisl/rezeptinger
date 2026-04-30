@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add Docker Compose for app, persistent data volume, and optional worker process.
+- [ ] Add a Docker healthcheck endpoint and Dockerfile `HEALTHCHECK`.
 
 ## Product
 
@@ -18,7 +18,6 @@
 
 - [ ] Add a production-style container variant with Gunicorn instead of Django `runserver`.
 - [ ] Run the container as a non-root user.
-- [ ] Add a Docker healthcheck endpoint and Dockerfile `HEALTHCHECK`.
 
 ## CI And Security
 
@@ -29,6 +28,7 @@
 
 ## Done
 
+- [x] Add Docker Compose for app, persistent data volume, and optional worker process.
 - [x] Add quicker cleanup actions for failed and cancelled sources.
 - [x] Show source types and filters in source/status views.
 - [x] Improve prompt/version handling so extraction behavior is reproducible.

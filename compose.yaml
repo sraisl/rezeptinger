@@ -1,0 +1,34 @@
+services:
+  web:
+    build: .
+    image: rezeptinger:local
+    ports:
+      - "8000:8000"
+    environment:
+      LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+      LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-}
+      SQLITE_DATABASE_PATH: /data/db.sqlite3
+      HUEY_SQLITE_PATH: /data/huey.sqlite3
+      YT_DLP_COOKIES_FILE: ${YT_DLP_COOKIES_FILE:-}
+    volumes:
+      - rezeptinger-data:/data
+
+  worker:
+    image: rezeptinger:local
+    profiles:
+      - worker
+    depends_on:
+      - web
+    entrypoint: []
+    command: ["python", "manage.py", "run_huey"]
+    environment:
+      LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+      LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-}
+      SQLITE_DATABASE_PATH: /data/db.sqlite3
+      HUEY_SQLITE_PATH: /data/huey.sqlite3
+      YT_DLP_COOKIES_FILE: ${YT_DLP_COOKIES_FILE:-}
+    volumes:
+      - rezeptinger-data:/data
+
+volumes:
+  rezeptinger-data:
