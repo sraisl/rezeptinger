@@ -42,6 +42,7 @@ class RecipeViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Erneut versuchen")
+        self.assertContains(response, "YouTube")
 
     def test_retry_source_enqueues_source(self):
         source = RecipeSource.objects.create(
@@ -80,6 +81,32 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Queue Status")
         self.assertContains(response, "Quellen in Arbeit")
+        self.assertContains(response, "Quellentyp")
+        self.assertContains(response, "YouTube")
+
+    def test_queue_status_filters_sources(self):
+        RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=processing-filter",
+            status=RecipeSource.Status.PROCESSING,
+        )
+        RecipeSource.objects.create(
+            source_type=RecipeSource.SourceType.WEBSITE,
+            url="https://example.com/failed-filter",
+            status=RecipeSource.Status.FAILED,
+        )
+
+        response = self.client.get(
+            reverse("recipes:queue_status"),
+            {
+                "status": RecipeSource.Status.FAILED,
+                "source_type": RecipeSource.SourceType.WEBSITE,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "https://example.com/failed-filter")
+        self.assertContains(response, "Webseite")
+        self.assertNotContains(response, "processing-filter")
 
     def test_queue_status_returns_json(self):
         RecipeSource.objects.create(
@@ -228,6 +255,8 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(response.status_code, 202)
         data = response.json()
         self.assertEqual(data["status"], RecipeSource.Status.PENDING)
+        self.assertEqual(data["source_type"], RecipeSource.SourceType.YOUTUBE)
+        self.assertEqual(data["source_type_display"], "YouTube")
         self.assertIn("/api/extractions/", data["status_url"])
         enqueue.assert_called_once()
 

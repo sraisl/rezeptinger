@@ -265,6 +265,8 @@ def data_export(request):
 
 def queue_status(request):
     status = get_queue_status()
+    selected_status = request.GET.get("status", "").strip()
+    selected_source_type = request.GET.get("source_type", "").strip()
     sources = RecipeSource.objects.filter(
         status__in=[
             RecipeSource.Status.PROCESSING,
@@ -272,9 +274,30 @@ def queue_status(request):
             RecipeSource.Status.CANCELLED,
         ]
     )
+    if selected_status in {choice.value for choice in RecipeSource.Status}:
+        sources = sources.filter(status=selected_status)
+    else:
+        selected_status = ""
+
+    if selected_source_type in {choice.value for choice in RecipeSource.SourceType}:
+        sources = sources.filter(source_type=selected_source_type)
+    else:
+        selected_source_type = ""
+
     if "application/json" in request.headers.get("Accept", ""):
         return JsonResponse(status)
-    return render(request, "recipes/queue_status.html", {"status": status, "sources": sources})
+    return render(
+        request,
+        "recipes/queue_status.html",
+        {
+            "status": status,
+            "sources": sources,
+            "status_choices": RecipeSource.Status.choices,
+            "source_type_choices": RecipeSource.SourceType.choices,
+            "selected_status": selected_status,
+            "selected_source_type": selected_source_type,
+        },
+    )
 
 
 # Intentional for local/headless import via curl and shortcuts; this app has no user accounts.
@@ -375,6 +398,8 @@ def _source_status_payload(request, source: RecipeSource) -> dict:
     return {
         "id": source.pk,
         "url": source.url,
+        "source_type": source.source_type,
+        "source_type_display": source.get_source_type_display(),
         "status": source.status,
         "status_display": source.get_status_display(),
         "error_message": source.error_message,

@@ -18,6 +18,35 @@
       <div><span>Abgebrochen</span><strong>{{ status.cancelled_sources }}</strong></div>
     </div>
 
+    <form class="filter-panel" method="get">
+      <label>
+        <span>Status</span>
+        <select name="status">
+          <option value="">Alle aktiven</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Quellentyp</span>
+        <select name="source_type">
+          <option value="">Alle Typen</option>
+          {% for value, label in source_type_choices %}
+            <option value="{{ value }}" {% if selected_source_type == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Filtern</button>
+      {% if selected_status or selected_source_type %}
+        <a class="muted-link" href="{% url 'recipes:queue_status' %}">Zurücksetzen</a>
+      {% endif %}
+    </form>
+
     {% if sources %}
       <section class="status-list">
         <h2>Aktive Quellen</h2>
@@ -25,7 +54,10 @@
           {% for source in sources %}
             <div class="source-item">
               <a class="source-link" href="{% url 'recipes:source_detail' source.pk %}">
-                <span class="status status-{{ source.status }}">{{ source.get_status_display }}</span>
+                <span class="source-badges">
+                  <span class="source-type">{{ source.get_source_type_display }}</span>
+                  <span class="status status-{{ source.status }}">{{ source.get_status_display }}</span>
+                </span>
                 <strong>{{ source.title|default:source.url }}</strong>
                 {% if source.error_message %}
                   <small>{{ source.error_message|truncatechars:140 }}</small>

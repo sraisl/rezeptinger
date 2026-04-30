@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Improve source/status views with visible source type, filters, and quicker cleanup for failed sources.
+- [ ] Add quicker cleanup actions for failed and cancelled sources.
 
 ## Product
 
@@ -30,6 +30,7 @@
 
 ## Done
 
+- [x] Show source types and filters in source/status views.
 - [x] Improve prompt/version handling so extraction behavior is reproducible.
 - [x] Improve webpage extraction with better cleanup for navigation, comments, and cookie-banner text.
 - [x] Add support for regular recipe page URLs beyond YouTube.

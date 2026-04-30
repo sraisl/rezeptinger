@@ -71,7 +71,10 @@
         {% for source in sources %}
           <div class="source-item">
             <a class="source-link" href="{% url 'recipes:source_detail' source.pk %}">
-              <span class="status status-{{ source.status }}">{{ source.get_status_display }}</span>
+              <span class="source-badges">
+                <span class="source-type">{{ source.get_source_type_display }}</span>
+                <span class="status status-{{ source.status }}">{{ source.get_status_display }}</span>
+              </span>
               <strong>{{ source.title|default:source.url }}</strong>
               {% if source.error_message %}
                 <small>{{ source.error_message|truncatechars:140 }}</small>
