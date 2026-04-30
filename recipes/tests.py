@@ -18,6 +18,7 @@ from recipes.services import lmstudio
 from recipes.services.extractor import process_source
 from recipes.services.lmstudio import RecipeExtractionResult
 from recipes.services.portable_data import migrate_import_payload
+from recipes.services.webpage import fetch_webpage_recipe
 from recipes.services.youtube import YouTubeRateLimited, YouTubeVideo, fetch_video
 
 
@@ -27,7 +28,7 @@ class RecipeViewsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Rezeptinger")
-        self.assertContains(response, "YouTube URL")
+        self.assertContains(response, "Rezept-Webseite")
         self.assertContains(response, "Text direkt extrahieren")
 
     def test_failed_source_shows_retry_button(self):
@@ -148,6 +149,35 @@ class RecipeViewsTests(TestCase):
         self.assertEqual(source.channel, "Direkte Eingabe")
         self.assertTrue(source.url.startswith("text://"))
         self.assertIn("Gemüse", source.transcript)
+        enqueue.assert_called_once_with(source)
+
+    def test_create_source_marks_non_youtube_url_as_website(self):
+        from unittest.mock import patch
+
+        with patch("recipes.views.enqueue_source_processing") as enqueue:
+            response = self.client.post(
+                reverse("recipes:create_source"),
+                data={"url": "https://example.com/recipes/pasta"},
+            )
+
+        source = RecipeSource.objects.get(url="https://example.com/recipes/pasta")
+        self.assertRedirects(response, reverse("recipes:source_detail", kwargs={"pk": source.pk}))
+        self.assertEqual(source.source_type, RecipeSource.SourceType.WEBSITE)
+        enqueue.assert_called_once_with(source)
+
+    def test_api_create_extraction_marks_non_youtube_url_as_website(self):
+        from unittest.mock import patch
+
+        with patch("recipes.views.enqueue_source_processing") as enqueue:
+            response = self.client.post(
+                reverse("recipes:api_create_extraction"),
+                data={"url": "https://example.com/recipes/api-pasta"},
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 202)
+        source = RecipeSource.objects.get(url="https://example.com/recipes/api-pasta")
+        self.assertEqual(source.source_type, RecipeSource.SourceType.WEBSITE)
         enqueue.assert_called_once_with(source)
 
     def test_cancel_processing_source_marks_cancelled_and_revokes_task(self):
@@ -856,6 +886,66 @@ class ExtractionTests(TestCase):
             "Pasta mit Tomaten kochen und servieren.",
         )
 
+    def test_process_website_source_creates_recipe_without_youtube_fetch(self):
+        source = RecipeSource.objects.create(
+            source_type=RecipeSource.SourceType.WEBSITE,
+            url="https://example.com/recipes/pasta",
+        )
+        payload = {
+            "is_recipe": True,
+            "title": "Web Pasta",
+            "summary": "Aus einer Rezept-Webseite.",
+            "servings": "",
+            "prep_time": "",
+            "cook_time": "",
+            "total_time": "",
+            "ingredients": [{"quantity": "", "unit": "", "name": "Pasta"}],
+            "steps": ["Kochen."],
+            "notes": [],
+            "tags": [],
+            "confidence": 0.7,
+        }
+
+        from unittest.mock import patch
+
+        webpage = type(
+            "Webpage",
+            (),
+            {
+                "url": "https://example.com/recipes/pasta",
+                "title": "Original Web Pasta",
+                "site_name": "Example Recipes",
+                "text": "Pasta mit Tomaten kochen und mit Basilikum servieren.",
+            },
+        )()
+
+        with (
+            patch("recipes.services.extractor.fetch_video") as fetch,
+            patch("recipes.services.extractor.fetch_webpage_recipe", return_value=webpage),
+            patch(
+                "recipes.services.extractor.extract_recipe_result",
+                return_value=RecipeExtractionResult(
+                    payload=payload,
+                    lm_studio_model="test-model",
+                    prompt_version="test-prompt",
+                    raw_response='{"title": "Web Pasta"}',
+                ),
+            ) as extract,
+        ):
+            process_source(source)
+
+        source.refresh_from_db()
+        self.assertEqual(source.status, RecipeSource.Status.DONE)
+        self.assertEqual(source.title, "Original Web Pasta")
+        self.assertEqual(source.channel, "Example Recipes")
+        self.assertEqual(source.recipe.title, "Web Pasta")
+        fetch.assert_not_called()
+        extract.assert_called_once_with(
+            "Original Web Pasta",
+            "Example Recipes",
+            "Pasta mit Tomaten kochen und mit Basilikum servieren.",
+        )
+
     def test_process_source_marks_repeated_video_as_failed_without_extraction(self):
         existing_source = RecipeSource.objects.create(
             url="https://www.youtube.com/watch?v=existing",
@@ -1159,6 +1249,62 @@ class LmStudioTests(TestCase):
         self.assertIn("a" * 1000, request_payload["messages"][1]["content"])
         self.assertNotIn("TRUNCATED", request_payload["messages"][1]["content"])
 
+    def test_extract_recipe_result_versions_default_prompt(self):
+        from unittest.mock import patch
+
+        response = _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"is_recipe": false, "reason": "Kein Rezept.", "confidence": 0.4}'
+                            )
+                        }
+                    }
+                ]
+            }
+        )
+
+        with (
+            self.settings(LM_STUDIO_MODEL="loaded-model"),
+            patch("recipes.services.lmstudio.httpx.post", return_value=response),
+        ):
+            result = lmstudio.extract_recipe_result("Titel", "Kanal", "Transkript")
+
+        self.assertEqual(result.prompt_version, "default-v1")
+
+    def test_extract_recipe_result_versions_custom_prompt_by_hash(self):
+        from unittest.mock import patch
+
+        AppSettings.objects.create(
+            pk=1,
+            lm_studio_model="saved-model",
+            extraction_prompt="Custom system prompt.",
+        )
+        response = _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"is_recipe": false, "reason": "Kein Rezept.", "confidence": 0.4}'
+                            )
+                        }
+                    }
+                ]
+            }
+        )
+
+        with patch("recipes.services.lmstudio.httpx.post", return_value=response):
+            result = lmstudio.extract_recipe_result("Titel", "Kanal", "Transkript")
+
+        self.assertRegex(result.prompt_version, r"^custom-[a-f0-9]{12}$")
+        self.assertEqual(
+            result.prompt_version,
+            f"custom-{lmstudio._prompt_hash('Custom system prompt.')}",
+        )
+
     def test_connection_status_lists_loaded_models(self):
         from unittest.mock import patch
 
@@ -1227,6 +1373,106 @@ class _FakeResponse:
                 request=request,
             )
             raise httpx.HTTPStatusError("bad request", request=request, response=response)
+
+
+class _FakeWebpageResponse:
+    def __init__(
+        self,
+        text,
+        content_type="text/html; charset=utf-8",
+        url="https://example.com/recipe",
+        status_code=200,
+    ):
+        import httpx
+
+        self.text = text
+        self.headers = {"content-type": content_type}
+        self.url = httpx.URL(url)
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import httpx
+
+            request = httpx.Request("GET", str(self.url))
+            response = httpx.Response(self.status_code, request=request)
+            raise httpx.HTTPStatusError("bad request", request=request, response=response)
+
+
+class WebpageRecipeTests(TestCase):
+    def test_fetch_webpage_recipe_prefers_json_ld_and_skips_page_chrome(self):
+        from unittest.mock import patch
+
+        html = """
+        <html>
+          <head>
+            <title>Navigation Title</title>
+            <meta property="og:site_name" content="Example Kitchen">
+            <script type="application/ld+json">
+              {
+                "@context": "https://schema.org",
+                "@type": "Recipe",
+                "name": "JSON Pasta",
+                "description": "Eine schnelle Pasta.",
+                "recipeIngredient": ["200 g Pasta", "Tomaten"],
+                "recipeInstructions": [{"text": "Pasta kochen."}, {"text": "Sauce mischen."}]
+              }
+            </script>
+          </head>
+          <body>
+            <nav>Start Rezepte Suche Impressum</nav>
+            <div id="cookie-banner">Alle Cookies akzeptieren</div>
+            <main>
+              <h1>JSON Pasta</h1>
+              <p>Dieser sichtbare Text wird ignoriert, weil JSON-LD vollständig ist.</p>
+            </main>
+            <footer>Newsletter abonnieren</footer>
+          </body>
+        </html>
+        """
+
+        with patch("recipes.services.webpage.httpx.get", return_value=_FakeWebpageResponse(html)):
+            recipe = fetch_webpage_recipe("https://example.com/recipe")
+
+        self.assertEqual(recipe.title, "JSON Pasta")
+        self.assertEqual(recipe.site_name, "Example Kitchen")
+        self.assertIn("Zutaten:", recipe.text)
+        self.assertIn("200 g Pasta", recipe.text)
+        self.assertIn("1. Pasta kochen.", recipe.text)
+        self.assertNotIn("Alle Cookies akzeptieren", recipe.text)
+        self.assertNotIn("Newsletter abonnieren", recipe.text)
+        self.assertNotIn("sichtbare Text wird ignoriert", recipe.text)
+
+    def test_fetch_webpage_recipe_cleans_unstructured_visible_text(self):
+        from unittest.mock import patch
+
+        html = """
+        <html>
+          <head><title>Ofenkartoffeln</title></head>
+          <body>
+            <header>Menü Start Suche</header>
+            <div class="consent-modal">Cookie-Einstellungen speichern</div>
+            <article>
+              <h1>Knusprige Ofenkartoffeln</h1>
+              <p>Kartoffeln halbieren und mit Öl, Salz und Rosmarin mischen.</p>
+              <p>Bei 220 Grad backen, bis sie goldbraun sind.</p>
+            </article>
+            <section class="comments">Ich habe das Rezept bewertet.</section>
+            <footer>Datenschutzerklärung Impressum</footer>
+          </body>
+        </html>
+        """
+
+        with patch("recipes.services.webpage.httpx.get", return_value=_FakeWebpageResponse(html)):
+            recipe = fetch_webpage_recipe("https://example.com/potatoes")
+
+        self.assertEqual(recipe.title, "Ofenkartoffeln")
+        self.assertIn("Knusprige Ofenkartoffeln", recipe.text)
+        self.assertIn("Kartoffeln halbieren", recipe.text)
+        self.assertIn("220 Grad", recipe.text)
+        self.assertNotIn("Cookie-Einstellungen", recipe.text)
+        self.assertNotIn("bewertet", recipe.text)
+        self.assertNotIn("Datenschutzerklärung", recipe.text)
 
 
 def json_loads(content):

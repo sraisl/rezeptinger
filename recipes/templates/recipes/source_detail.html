@@ -12,6 +12,8 @@
     <h1>{{ source.title|default:"Quelle" }}</h1>
     {% if source.source_type == "text" %}
       <p>Direkte Texteingabe</p>
+    {% elif source.source_type == "website" %}
+      <p>Rezept-Webseite: <a href="{{ source.url }}" target="_blank" rel="noreferrer">{{ source.url }}</a></p>
     {% else %}
       <p><a href="{{ source.url }}" target="_blank" rel="noreferrer">{{ source.url }}</a></p>
     {% endif %}
@@ -27,7 +29,7 @@
       </div>
       <p id="source-status-text" class="status-text">
         {% if source.status == "processing" %}
-          Extraktion läuft. Das kann je nach Video und lokalem Modell etwas dauern.
+          Extraktion läuft. Das kann je nach Quelle und lokalem Modell etwas dauern.
         {% elif source.status == "pending" %}
           Die Quelle wartet auf Verarbeitung.
         {% elif source.status == "done" %}
@@ -172,7 +174,7 @@
         }
 
         if (data.status === "processing") {
-          text.textContent = "Extraktion läuft. Das kann je nach Video und lokalem Modell etwas dauern.";
+          text.textContent = "Extraktion läuft. Das kann je nach Quelle und lokalem Modell etwas dauern.";
         }
 
         window.setTimeout(pollStatus, 1500);

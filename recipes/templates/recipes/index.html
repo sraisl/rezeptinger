@@ -5,12 +5,12 @@
 {% block content %}
   <section class="intro">
     <div>
-      <p class="eyebrow">YouTube rein, Rezept raus</p>
-      <h1>Rezepte aus Videos extrahieren und wiederfinden.</h1>
+      <p class="eyebrow">URL rein, Rezept raus</p>
+      <h1>Rezepte aus Videos, Webseiten und Texten extrahieren.</h1>
     </div>
     <form class="url-form" action="{% url 'recipes:create_source' %}" method="post">
       {% csrf_token %}
-      <label class="sr-only" for="{{ form.url.id_for_label }}">YouTube URL</label>
+      <label class="sr-only" for="{{ form.url.id_for_label }}">URL</label>
       {{ form.url }}
       {% if form.url.errors %}
         <div class="field-error">{{ form.url.errors|join:", " }}</div>
@@ -117,7 +117,7 @@
               <img src="{{ recipe.source.thumbnail_url }}" alt="">
             {% endif %}
             <div class="recipe-card-body">
-              <span>{{ recipe.source.channel|default:"YouTube" }}</span>
+              <span>{{ recipe.source.channel|default:"Quelle" }}</span>
               <h3>{{ recipe.title }}</h3>
               {% if recipe.tags.exists %}
                 <div class="card-tags">
@@ -140,7 +140,7 @@
     {% else %}
       <div class="empty-state">
         <h3>Noch keine Rezepte</h3>
-        <p>Füge eine YouTube-URL ein, während LM Studio lokal läuft.</p>
+        <p>Füge eine YouTube-URL, eine Rezept-Webseite oder direkten Rezepttext ein.</p>
       </div>
     {% endif %}
   </section>

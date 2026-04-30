@@ -10,6 +10,7 @@ from recipes.models import ExtractionAttempt, Recipe, RecipeSource, Tag
 from .duplicates import find_duplicate_video_recipe
 from .ingredients import replace_recipe_ingredients
 from .lmstudio import RecipeExtractionError, extract_recipe_result
+from .webpage import WebpageUnavailable, fetch_webpage_recipe
 from .youtube import TranscriptUnavailable, YouTubeRateLimited, fetch_video
 
 
@@ -122,7 +123,13 @@ def process_source(source: RecipeSource) -> RecipeSource:
             source.save()
             _finish_attempt(attempt, ExtractionAttempt.Status.DONE)
 
-    except (TranscriptUnavailable, YouTubeRateLimited, RecipeExtractionError, Exception) as exc:
+    except (
+        TranscriptUnavailable,
+        YouTubeRateLimited,
+        WebpageUnavailable,
+        RecipeExtractionError,
+        Exception,
+    ) as exc:
         source.refresh_from_db()
         if source.status == RecipeSource.Status.CANCELLED:
             _finish_attempt(
@@ -153,6 +160,16 @@ def _source_video_payload(source: RecipeSource):
             channel=source.channel or "Direkte Eingabe",
             thumbnail_url="",
             transcript=source.transcript,
+        )
+    if source.source_type == RecipeSource.SourceType.WEBSITE:
+        webpage = fetch_webpage_recipe(source.url)
+        return _TextVideoPayload(
+            url=webpage.url,
+            video_id="",
+            title=webpage.title,
+            channel=webpage.site_name,
+            thumbnail_url="",
+            transcript=webpage.text,
         )
     return fetch_video(source.url)
 

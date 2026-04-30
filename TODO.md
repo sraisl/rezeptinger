@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add support for regular recipe page URLs beyond YouTube.
+- [ ] Add a fallback for videos without captions by extracting audio and running local speech-to-text, for example Whisper.cpp or faster-whisper.
 
 ## Product
 
@@ -10,8 +10,6 @@
 
 ## Extraction
 
-- [ ] Add a fallback for videos without captions by extracting audio and running local speech-to-text, for example Whisper.cpp or faster-whisper.
-- [ ] Improve prompt/version handling so extraction behavior is reproducible.
 
 ## Docker And Deployment
 
@@ -29,6 +27,9 @@
 
 ## Done
 
+- [x] Improve prompt/version handling so extraction behavior is reproducible.
+- [x] Improve webpage extraction with better cleanup for navigation, comments, and cookie-banner text.
+- [x] Add support for regular recipe page URLs beyond YouTube.
 - [x] Add direct text/transcript input as a non-YouTube extraction source.
 - [x] Add optional gzip-compressed catalog exports and imports.
 - [x] Add import payload migrations that normalize older export versions to the current shape.

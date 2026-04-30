@@ -89,6 +89,8 @@
     <footer class="source-footer">
       {% if recipe.source.source_type == "text" %}
         <span>Direkte Texteingabe</span>
+      {% elif recipe.source.source_type == "website" %}
+        <a href="{{ recipe.source.url }}" target="_blank" rel="noreferrer">Rezept-Webseite öffnen</a>
       {% else %}
         <a href="{{ recipe.source.url }}" target="_blank" rel="noreferrer">Originalvideo öffnen</a>
       {% endif %}

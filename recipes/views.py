@@ -70,7 +70,10 @@ def create_source(request):
             },
         )
 
-    source, created = RecipeSource.objects.get_or_create(url=form.cleaned_data["url"])
+    source, created = RecipeSource.objects.get_or_create(
+        url=form.cleaned_data["url"],
+        defaults={"source_type": _source_type_for_url(form.cleaned_data["url"])},
+    )
     if source.status == RecipeSource.Status.DONE and hasattr(source, "recipe"):
         messages.info(request, "Dieses Rezept ist bereits im Katalog.")
         return redirect(source.recipe)
@@ -225,7 +228,10 @@ def bookmarklet_capture(request):
         messages.error(request, "Die aktuelle Seite ist keine valide YouTube-URL.")
         return redirect("recipes:index")
 
-    source, created = RecipeSource.objects.get_or_create(url=form.cleaned_data["url"])
+    source, created = RecipeSource.objects.get_or_create(
+        url=form.cleaned_data["url"],
+        defaults={"source_type": RecipeSource.SourceType.YOUTUBE},
+    )
     if source.status == RecipeSource.Status.DONE and hasattr(source, "recipe"):
         messages.info(request, "Dieses Rezept ist bereits im Katalog.")
         return redirect(source.recipe)
@@ -302,9 +308,12 @@ def api_create_extraction(request):
     form = RecipeSourceForm({"url": payload.get("url", "")})
 
     if not form.is_valid():
-        return JsonResponse({"error": "Bitte eine valide YouTube-URL übergeben."}, status=400)
+        return JsonResponse({"error": "Bitte eine valide URL übergeben."}, status=400)
 
-    source, created = RecipeSource.objects.get_or_create(url=form.cleaned_data["url"])
+    source, created = RecipeSource.objects.get_or_create(
+        url=form.cleaned_data["url"],
+        defaults={"source_type": _source_type_for_url(form.cleaned_data["url"])},
+    )
     should_enqueue = created or source.status != RecipeSource.Status.PROCESSING
     if source.status == RecipeSource.Status.DONE and hasattr(source, "recipe"):
         should_enqueue = False
@@ -408,3 +417,9 @@ def reverse_url_path(viewname: str, **kwargs) -> str:
 def _is_youtube_url(url: str) -> bool:
     host = urlparse(url).netloc.lower()
     return host in {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
+
+
+def _source_type_for_url(url: str) -> str:
+    if _is_youtube_url(url):
+        return RecipeSource.SourceType.YOUTUBE
+    return RecipeSource.SourceType.WEBSITE

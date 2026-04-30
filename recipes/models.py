@@ -27,6 +27,7 @@ class AppSettings(models.Model):
 class RecipeSource(models.Model):
     class SourceType(models.TextChoices):
         YOUTUBE = "youtube", "YouTube"
+        WEBSITE = "website", "Webseite"
         TEXT = "text", "Text"
 
     class Status(models.TextChoices):

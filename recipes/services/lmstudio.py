@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import Any
 
 import httpx
@@ -43,7 +44,7 @@ class LmStudioConnectionStatus:
     error_message: str = ""
 
 
-PROMPT_VERSION = "2026-04-29"
+DEFAULT_PROMPT_VERSION = "default-v1"
 
 SYSTEM_PROMPT = """
 Du extrahierst Kochrezepte aus YouTube-Transkripten.
@@ -89,7 +90,7 @@ def extract_recipe_result(
     base_url = lm_studio_base_url()
     model = _resolve_model(base_url)
     prompt = _build_prompt(video_title, channel, transcript)
-    system_prompt = extraction_prompt() or SYSTEM_PROMPT
+    system_prompt, prompt_version = _system_prompt_with_version()
 
     payload = {
         "model": model,
@@ -114,7 +115,7 @@ def extract_recipe_result(
         raise RecipeExtractionError(
             message,
             lm_studio_model=model,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=prompt_version,
             raw_response=raw_response,
         ) from exc
 
@@ -127,16 +128,27 @@ def extract_recipe_result(
         raise RecipeExtractionError(
             message,
             lm_studio_model=model,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=prompt_version,
             raw_response=_raw_response_content(response),
         ) from exc
 
     return RecipeExtractionResult(
         payload=_normalize_recipe_payload(data),
         lm_studio_model=model,
-        prompt_version=PROMPT_VERSION,
+        prompt_version=prompt_version,
         raw_response=content,
     )
+
+
+def _system_prompt_with_version() -> tuple[str, str]:
+    custom_prompt = extraction_prompt()
+    if custom_prompt:
+        return custom_prompt, f"custom-{_prompt_hash(custom_prompt)}"
+    return SYSTEM_PROMPT, DEFAULT_PROMPT_VERSION
+
+
+def _prompt_hash(prompt: str) -> str:
+    return sha256(prompt.encode("utf-8")).hexdigest()[:12]
 
 
 def _resolve_model(base_url: str) -> str:
