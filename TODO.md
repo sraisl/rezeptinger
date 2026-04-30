@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add a fallback for videos without captions by extracting audio and running local speech-to-text, for example Whisper.cpp or faster-whisper.
+- [ ] Improve source/status views with visible source type, filters, and quicker cleanup for failed sources.
 
 ## Product
 
@@ -10,6 +10,9 @@
 
 ## Extraction
 
+## Won't Do
+
+- [ ] Audio transcription fallback for videos without captions, to keep the local app simple.
 
 ## Docker And Deployment
 
