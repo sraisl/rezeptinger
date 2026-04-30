@@ -47,6 +47,29 @@
       {% endif %}
     </form>
 
+    {% if status.failed_sources or status.cancelled_sources %}
+      <div class="cleanup-actions">
+        {% if status.failed_sources %}
+          <form action="{% url 'recipes:cleanup_sources' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="status" value="failed">
+            <button class="danger-button" type="submit">
+              {{ status.failed_sources }} fehlgeschlagene entfernen
+            </button>
+          </form>
+        {% endif %}
+        {% if status.cancelled_sources %}
+          <form action="{% url 'recipes:cleanup_sources' %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="status" value="cancelled">
+            <button class="danger-button" type="submit">
+              {{ status.cancelled_sources }} abgebrochene entfernen
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+
     {% if sources %}
       <section class="status-list">
         <h2>Aktive Quellen</h2>

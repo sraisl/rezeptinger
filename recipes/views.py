@@ -157,6 +157,28 @@ def delete_source(request, pk):
     return redirect("recipes:source_detail", pk=source.pk)
 
 
+@require_http_methods(["POST"])
+def cleanup_sources(request):
+    cleanup_status = request.POST.get("status", "").strip()
+    allowed_statuses = {
+        RecipeSource.Status.FAILED: "fehlgeschlagene",
+        RecipeSource.Status.CANCELLED: "abgebrochene",
+    }
+    if cleanup_status not in allowed_statuses:
+        messages.error(
+            request,
+            "Nur fehlgeschlagene oder abgebrochene Quellen können entfernt werden.",
+        )
+        return redirect("recipes:queue_status")
+
+    sources = RecipeSource.objects.filter(status=cleanup_status)
+    deleted_count = sources.count()
+    sources.delete()
+    label = allowed_statuses[cleanup_status]
+    messages.success(request, f"{deleted_count} {label} Quellen wurden entfernt.")
+    return redirect("recipes:queue_status")
+
+
 def detail(request, pk):
     recipe = get_object_or_404(
         Recipe.objects.select_related("source").prefetch_related("tags"),

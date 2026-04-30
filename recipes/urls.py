@@ -13,6 +13,7 @@ urlpatterns = [
     path("data/", views.data_tools, name="data_tools"),
     path("data/export/", views.data_export, name="data_export"),
     path("data/import/", views.data_import, name="data_import"),
+    path("queue/cleanup/", views.cleanup_sources, name="cleanup_sources"),
     path("queue/status/", views.queue_status, name="queue_status"),
     path("sources/", views.create_source, name="create_source"),
     path("sources/text/", views.create_text_source, name="create_text_source"),

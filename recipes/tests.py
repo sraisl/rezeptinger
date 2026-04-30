@@ -75,6 +75,10 @@ class RecipeViewsTests(TestCase):
             url="https://www.youtube.com/watch?v=processing",
             status=RecipeSource.Status.PROCESSING,
         )
+        RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=failed-cleanup-action",
+            status=RecipeSource.Status.FAILED,
+        )
 
         response = self.client.get(reverse("recipes:queue_status"))
 
@@ -83,6 +87,7 @@ class RecipeViewsTests(TestCase):
         self.assertContains(response, "Quellen in Arbeit")
         self.assertContains(response, "Quellentyp")
         self.assertContains(response, "YouTube")
+        self.assertContains(response, "fehlgeschlagene entfernen")
 
     def test_queue_status_filters_sources(self):
         RecipeSource.objects.create(
@@ -241,6 +246,54 @@ class RecipeViewsTests(TestCase):
         self.assertFalse(RecipeSource.objects.filter(pk=source.pk).exists())
         revoke.assert_called_once()
         self.assertEqual(revoke.call_args.args[0].url, source.url)
+
+    def test_cleanup_sources_removes_failed_sources_only(self):
+        RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=cleanup-failed",
+            status=RecipeSource.Status.FAILED,
+        )
+        RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=cleanup-cancelled",
+            status=RecipeSource.Status.CANCELLED,
+        )
+        RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=cleanup-processing",
+            status=RecipeSource.Status.PROCESSING,
+        )
+
+        response = self.client.post(
+            reverse("recipes:cleanup_sources"),
+            data={"status": RecipeSource.Status.FAILED},
+        )
+
+        self.assertRedirects(response, reverse("recipes:queue_status"))
+        self.assertFalse(
+            RecipeSource.objects.filter(url="https://www.youtube.com/watch?v=cleanup-failed").exists()
+        )
+        self.assertTrue(
+            RecipeSource.objects.filter(
+                url="https://www.youtube.com/watch?v=cleanup-cancelled"
+            ).exists()
+        )
+        self.assertTrue(
+            RecipeSource.objects.filter(
+                url="https://www.youtube.com/watch?v=cleanup-processing"
+            ).exists()
+        )
+
+    def test_cleanup_sources_rejects_processing_status(self):
+        RecipeSource.objects.create(
+            url="https://www.youtube.com/watch?v=cleanup-reject-processing",
+            status=RecipeSource.Status.PROCESSING,
+        )
+
+        response = self.client.post(
+            reverse("recipes:cleanup_sources"),
+            data={"status": RecipeSource.Status.PROCESSING},
+        )
+
+        self.assertRedirects(response, reverse("recipes:queue_status"))
+        self.assertTrue(RecipeSource.objects.exists())
 
     def test_api_create_extraction_accepts_json(self):
         from unittest.mock import patch
