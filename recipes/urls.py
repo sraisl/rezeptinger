@@ -6,6 +6,7 @@ app_name = "recipes"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("health/", views.health, name="health"),
     path("api/extractions/", views.api_create_extraction, name="api_create_extraction"),
     path("api/extractions/<int:pk>/", views.api_extraction_status, name="api_extraction_status"),
     path("bookmarklet/", views.bookmarklet_tools, name="bookmarklet"),

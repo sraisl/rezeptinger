@@ -23,6 +23,12 @@ from recipes.services.youtube import YouTubeRateLimited, YouTubeVideo, fetch_vid
 
 
 class RecipeViewsTests(TestCase):
+    def test_health_returns_ok(self):
+        response = self.client.get(reverse("recipes:health"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+
     def test_index_renders(self):
         response = self.client.get(reverse("recipes:index"))
 

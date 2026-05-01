@@ -51,6 +51,10 @@ def index(request):
     )
 
 
+def health(request):
+    return JsonResponse({"status": "ok"})
+
+
 @require_http_methods(["POST"])
 def create_source(request):
     form = RecipeSourceForm(request.POST)

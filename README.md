@@ -99,6 +99,12 @@ docker compose logs -f
 docker compose down
 ```
 
+Der Container hat einen Docker-Healthcheck gegen `/health/`. Den Status siehst du mit:
+
+```bash
+docker compose ps
+```
+
 Das Datenvolume bleibt bei `docker compose down` erhalten. Entferne es nur bewusst:
 
 ```bash
