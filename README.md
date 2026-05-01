@@ -105,6 +105,9 @@ Der Container hat einen Docker-Healthcheck gegen `/health/`. Den Status siehst d
 docker compose ps
 ```
 
+Der Prozess läuft im Container als non-root User `rezeptinger`. Das Volume `/data` ist für diesen
+User beschreibbar, damit SQLite und Huey dort Dateien anlegen können.
+
 Das Datenvolume bleibt bei `docker compose down` erhalten. Entferne es nur bewusst:
 
 ```bash

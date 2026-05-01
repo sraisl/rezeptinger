@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Run the container as a non-root user.
+- [ ] Add a production-style container variant with Gunicorn instead of Django `runserver`.
 
 ## Product
 
@@ -16,7 +16,6 @@
 
 ## Docker And Deployment
 
-- [ ] Add a production-style container variant with Gunicorn instead of Django `runserver`.
 
 ## CI And Security
 
@@ -27,6 +26,7 @@
 
 ## Done
 
+- [x] Run the container as a non-root user.
 - [x] Add a Docker healthcheck endpoint and Dockerfile `HEALTHCHECK`.
 - [x] Add Docker Compose for app, persistent data volume, and optional worker process.
 - [x] Add quicker cleanup actions for failed and cancelled sources.
