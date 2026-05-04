@@ -56,7 +56,9 @@ Extraktionsprompt werden nur im Admin unter `App settings` bearbeitet.
 
 ## Docker lokal
 
-Das Docker-Image ist derzeit bewusst ein lokales Entwicklungsimage. Es nutzt Django `runserver`, führt beim Start automatisch Migrationen aus und speichert SQLite standardmäßig unter `/data/db.sqlite3`.
+Das Docker-Image nutzt Gunicorn, führt beim Start automatisch Migrationen aus und speichert SQLite
+standardmäßig unter `/data/db.sqlite3`. Statische Dateien werden beim Image-Build gesammelt und über
+WhiteNoise ausgeliefert.
 
 Image bauen:
 

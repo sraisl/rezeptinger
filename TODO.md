@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add a production-style container variant with Gunicorn instead of Django `runserver`.
+- [ ] Add Dockerfile linting, for example Hadolint.
 
 ## Product
 
@@ -19,13 +19,13 @@
 
 ## CI And Security
 
-- [ ] Add Dockerfile linting, for example Hadolint.
 - [ ] Add container image vulnerability scanning, for example Trivy.
 - [ ] Upload security findings as SARIF where useful.
 - [ ] Add a GitHub release flow where tags like `vX.Y.Z` publish GHCR images and release notes.
 
 ## Done
 
+- [x] Add a production-style container variant with Gunicorn instead of Django `runserver`.
 - [x] Run the container as a non-root user.
 - [x] Add a Docker healthcheck endpoint and Dockerfile `HEALTHCHECK`.
 - [x] Add Docker Compose for app, persistent data volume, and optional worker process.

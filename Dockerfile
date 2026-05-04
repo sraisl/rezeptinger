@@ -23,6 +23,7 @@ COPY . .
 RUN addgroup --system rezeptinger \
     && adduser --system --ingroup rezeptinger --home /app rezeptinger \
     && mkdir -p /data \
+    && python manage.py collectstatic --noinput \
     && chmod +x scripts/docker-entrypoint.sh \
     && chown -R rezeptinger:rezeptinger /app /data
 
@@ -36,4 +37,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 USER rezeptinger
 
 ENTRYPOINT ["scripts/docker-entrypoint.sh"]
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["gunicorn", "rezeptinger.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "4"]
