@@ -74,6 +74,12 @@ Dockerfile und Compose-Konfiguration prüfen:
 make docker-check
 ```
 
+Container-Image lokal mit Trivy auf HIGH/CRITICAL Findings scannen:
+
+```bash
+make docker-scan
+```
+
 Container mit benanntem Volume starten:
 
 ```bash

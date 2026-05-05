@@ -1,4 +1,4 @@
-.PHONY: help install sync setup migrate server worker dev ruff test check collectstatic docker-lint docker-check docker-build compose-up compose-worker compose-down
+.PHONY: help install sync setup migrate server worker dev ruff test check collectstatic docker-lint docker-check docker-build docker-scan compose-up compose-worker compose-down
 
 PYTHON_VERSION := 3.12
 HOST := 127.0.0.1
@@ -15,6 +15,7 @@ help:
 	@echo "  make docker-lint    Lint Dockerfile with Hadolint"
 	@echo "  make docker-check   Run Docker lint and Compose config checks"
 	@echo "  make docker-build   Build local Docker image"
+	@echo "  make docker-scan    Scan local Docker image with Trivy"
 	@echo "  make compose-up     Start Docker Compose web service"
 	@echo "  make compose-worker Start Docker Compose web service plus worker"
 	@echo "  make compose-down   Stop Docker Compose services"
@@ -58,6 +59,9 @@ docker-check: docker-lint
 
 docker-build:
 	docker build -t rezeptinger:local .
+
+docker-scan: docker-build
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL --exit-code 1 rezeptinger:local
 
 compose-up:
 	docker compose up --build
