@@ -29,6 +29,17 @@ def lm_studio_model() -> str:
     )
 
 
+def lm_studio_max_tokens() -> int:
+    raw_value = os.environ.get("LM_STUDIO_MAX_TOKENS", "").strip()
+    if not raw_value:
+        raw_value = str(getattr(settings, "LM_STUDIO_MAX_TOKENS", 8192))
+    try:
+        value = int(raw_value)
+    except ValueError:
+        value = 8192
+    return max(512, min(32768, value))
+
+
 def transcript_limit() -> int:
     app_settings = load_app_settings()
     return max(1000, min(200000, app_settings.transcript_limit or 30000))

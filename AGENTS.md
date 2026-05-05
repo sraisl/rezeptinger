@@ -15,16 +15,14 @@ This repository is a small Django monolith for extracting recipes from YouTube t
 ## Common Commands
 
 ```bash
-mise install
-mise exec uv -- uv sync --python 3.12
-mise exec uv -- uv run python manage.py migrate
-mise exec uv -- uv run python manage.py runserver 127.0.0.1:8000
+make setup
+make server
 ```
 
 Run the Huey worker in a second terminal when testing extraction end-to-end:
 
 ```bash
-mise exec uv -- uv run python manage.py run_huey
+make worker
 ```
 
 ## Dev Environment Start And Restart
@@ -36,19 +34,19 @@ Start or restart the local dev environment in this order:
 3. Apply migrations:
 
 ```bash
-mise exec uv -- uv run python manage.py migrate
+make migrate
 ```
 
 4. Start the Django dev server:
 
 ```bash
-mise exec uv -- uv run python manage.py runserver 127.0.0.1:8000
+make server
 ```
 
 5. Start the Huey worker in a separate terminal:
 
 ```bash
-mise exec uv -- uv run python manage.py run_huey
+make worker
 ```
 
 Always restart both the web server and the Huey worker after code changes that affect models,
@@ -59,8 +57,7 @@ code.
 Quality checks:
 
 ```bash
-mise exec uv -- uv run ruff check .
-mise exec uv -- uv run python manage.py test
+make check
 ```
 
 ## Project Layout

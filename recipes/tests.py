@@ -1224,6 +1224,34 @@ class LmStudioTests(TestCase):
         self.assertFalse(payload["is_recipe"])
         self.assertEqual(post.call_count, 2)
         self.assertNotIn("response_format", post.call_args_list[1].kwargs["json"])
+        self.assertEqual(post.call_args_list[0].kwargs["json"]["max_tokens"], 8192)
+        self.assertEqual(post.call_args_list[1].kwargs["json"]["max_tokens"], 8192)
+
+    def test_extract_recipe_uses_configured_max_tokens(self):
+        from unittest.mock import patch
+
+        response = _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"is_recipe": false, "reason": "Kein Rezept.", "confidence": 0.4}'
+                            )
+                        }
+                    }
+                ]
+            }
+        )
+
+        with (
+            self.settings(LM_STUDIO_MODEL="loaded-model"),
+            patch.dict("os.environ", {"LM_STUDIO_MAX_TOKENS": "12000"}),
+            patch("recipes.services.lmstudio.httpx.post", return_value=response) as post,
+        ):
+            lmstudio.extract_recipe("Titel", "Kanal", "Transkript")
+
+        self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 12000)
 
     def test_resolve_model_prefers_instruct_model(self):
         from unittest.mock import patch
@@ -1265,6 +1293,33 @@ class LmStudioTests(TestCase):
         payload = lmstudio._parse_json_content(content)
 
         self.assertFalse(payload["is_recipe"])
+
+    def test_incomplete_json_response_reports_truncated_answer(self):
+        from unittest.mock import patch
+
+        response = _FakeResponse(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{ "is_recipe": true, "title": "Perfekter Sushi Reis", '
+                                '"summary": "Anleitung", "total'
+                            )
+                        }
+                    }
+                ]
+            }
+        )
+
+        with (
+            self.settings(LM_STUDIO_MODEL="loaded-model"),
+            patch("recipes.services.lmstudio.httpx.post", return_value=response),
+        ):
+            with self.assertRaises(lmstudio.RecipeExtractionError) as error:
+                lmstudio.extract_recipe("Titel", "Kanal", "Transkript")
+
+        self.assertIn("vermutlich abgeschnitten", str(error.exception))
 
     def test_normalize_recipe_payload_includes_tag_strings(self):
         payload = lmstudio._normalize_recipe_payload(

@@ -7,6 +7,7 @@ services:
     environment:
       LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
       LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-}
+      LM_STUDIO_MAX_TOKENS: ${LM_STUDIO_MAX_TOKENS:-8192}
       SQLITE_DATABASE_PATH: /data/db.sqlite3
       HUEY_SQLITE_PATH: /data/huey.sqlite3
       YT_DLP_COOKIES_FILE: ${YT_DLP_COOKIES_FILE:-}
@@ -24,6 +25,7 @@ services:
     environment:
       LM_STUDIO_BASE_URL: ${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
       LM_STUDIO_MODEL: ${LM_STUDIO_MODEL:-}
+      LM_STUDIO_MAX_TOKENS: ${LM_STUDIO_MAX_TOKENS:-8192}
       SQLITE_DATABASE_PATH: /data/db.sqlite3
       HUEY_SQLITE_PATH: /data/huey.sqlite3
       YT_DLP_COOKIES_FILE: ${YT_DLP_COOKIES_FILE:-}

@@ -25,6 +25,7 @@
 
 ## Done
 
+- [x] Add Makefile task runner for local setup, dev server, worker, checks, and Docker tasks.
 - [x] Add a production-style container variant with Gunicorn instead of Django `runserver`.
 - [x] Run the container as a non-root user.
 - [x] Add a Docker healthcheck endpoint and Dockerfile `HEALTHCHECK`.

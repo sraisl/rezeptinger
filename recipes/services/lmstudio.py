@@ -10,7 +10,13 @@ import httpx
 
 from recipes.models import Tag
 
-from .app_settings import extraction_prompt, lm_studio_base_url, lm_studio_model, transcript_limit
+from .app_settings import (
+    extraction_prompt,
+    lm_studio_base_url,
+    lm_studio_max_tokens,
+    lm_studio_model,
+    transcript_limit,
+)
 
 
 class RecipeExtractionError(Exception):
@@ -45,7 +51,6 @@ class LmStudioConnectionStatus:
 
 
 DEFAULT_PROMPT_VERSION = "default-v1"
-
 SYSTEM_PROMPT = """
 Du extrahierst Kochrezepte aus YouTube-Transkripten.
 Antworte ausschließlich als valides JSON-Objekt. Keine Markdown-Blöcke.
@@ -99,6 +104,7 @@ def extract_recipe_result(
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.1,
+        "max_tokens": lm_studio_max_tokens(),
     }
 
     try:
@@ -123,13 +129,20 @@ def extract_recipe_result(
         content = response.json()["choices"][0]["message"]["content"]
         data = _parse_json_content(content)
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-        excerpt = _response_content_excerpt(response)
-        message = f"LM Studio hat keine valide JSON-Antwort geliefert. Antwortauszug: {excerpt}"
+        raw_response = _raw_response_content(response)
+        excerpt = _content_excerpt(raw_response)
+        if isinstance(exc, json.JSONDecodeError) and _looks_incomplete_json(raw_response):
+            message = (
+                "LM Studio hat die JSON-Antwort vermutlich abgeschnitten. "
+                f"Antwortauszug: {excerpt}"
+            )
+        else:
+            message = f"LM Studio hat keine valide JSON-Antwort geliefert. Antwortauszug: {excerpt}"
         raise RecipeExtractionError(
             message,
             lm_studio_model=model,
             prompt_version=prompt_version,
-            raw_response=_raw_response_content(response),
+            raw_response=raw_response,
         ) from exc
 
     return RecipeExtractionResult(
@@ -240,7 +253,10 @@ def _parse_json_content(content: str) -> dict[str, Any]:
 
 
 def _response_content_excerpt(response: httpx.Response) -> str:
-    content = _raw_response_content(response)
+    return _content_excerpt(_raw_response_content(response))
+
+
+def _content_excerpt(content: str) -> str:
     content = re.sub(r"\s+", " ", str(content)).strip()
     return content[:500] or "leer"
 
@@ -250,6 +266,38 @@ def _raw_response_content(response: httpx.Response) -> str:
         return str(response.json()["choices"][0]["message"]["content"])
     except (KeyError, IndexError, TypeError, ValueError):
         return response.text
+
+
+def _looks_incomplete_json(content: str) -> bool:
+    content = content.strip()
+    if not content.startswith("{"):
+        return False
+
+    stack = []
+    in_string = False
+    escaped = False
+    for char in content:
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char in "{[":
+            stack.append(char)
+        elif char == "}":
+            if not stack or stack.pop() != "{":
+                return False
+        elif char == "]":
+            if not stack or stack.pop() != "[":
+                return False
+
+    return in_string or bool(stack)
 
 
 def _build_prompt(video_title: str, channel: str, transcript: str) -> str:

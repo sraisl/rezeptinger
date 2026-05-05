@@ -5,17 +5,19 @@ Ein kleiner Django-Monolith, der YouTube-URLs annimmt, Rezeptinformationen aus T
 ## Setup
 
 ```bash
-mise install
-uv sync
-uv run python manage.py migrate
-uv run python manage.py runserver
+make setup
+make server
 ```
 
 Extraktionen laufen über Huey. Starte in einem zweiten Terminal den Worker:
 
 ```bash
-uv run python manage.py run_huey
+make worker
 ```
+
+Nach Code- oder Migrationsänderungen kannst du den Server mit `Ctrl-C` stoppen und erneut mit
+`make dev` starten. `make dev` führt zuerst Migrationen aus und startet dann den Dev-Server auf
+<http://127.0.0.1:8000/>.
 
 LM Studio muss mit aktiviertem lokalen Server laufen, typischerweise:
 
@@ -168,6 +170,7 @@ docker stop rezeptinger-local
 ```bash
 LM_STUDIO_BASE_URL=http://host.docker.internal:1234/v1
 LM_STUDIO_MODEL=google/gemma-4-e2b
+LM_STUDIO_MAX_TOKENS=8192
 SQLITE_DATABASE_PATH=/data/db.sqlite3
 YT_DLP_COOKIES_FILE=
 ```

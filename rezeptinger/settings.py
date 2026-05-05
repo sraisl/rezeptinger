@@ -75,6 +75,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LM_STUDIO_BASE_URL = "http://localhost:1234/v1"
 LM_STUDIO_MODEL = "google/gemma-4-e2b"
+LM_STUDIO_MAX_TOKENS = 8192
 
 HUEY = {
     "huey_class": "huey.SqliteHuey",
