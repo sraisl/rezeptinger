@@ -80,6 +80,12 @@ Container-Image lokal mit Trivy auf HIGH/CRITICAL Findings scannen:
 make docker-scan
 ```
 
+### Releases
+
+Tags im Format `vX.Y.Z` lösen in GitHub Actions den Docker-Workflow aus. Dabei werden GHCR-Images
+für die Version, `latest` und den Commit-SHA veröffentlicht und anschließend ein GitHub Release mit
+generierten Release Notes erstellt.
+
 Container mit benanntem Volume starten:
 
 ```bash

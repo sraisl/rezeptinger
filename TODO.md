@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add a GitHub release flow where tags like `vX.Y.Z` publish GHCR images and release notes.
+- [ ] Decide the next product-focused improvement.
 
 ## Product
 
@@ -19,10 +19,10 @@
 
 ## CI And Security
 
-- [ ] Add a GitHub release flow where tags like `vX.Y.Z` publish GHCR images and release notes.
 
 ## Done
 
+- [x] Add a GitHub release flow where tags like `vX.Y.Z` publish GHCR images and release notes.
 - [x] Add container image vulnerability scanning with Trivy in Makefile and CI.
 - [x] Upload container security findings as SARIF in GitHub Actions.
 - [x] Add Dockerfile linting with Hadolint in Makefile and CI.
