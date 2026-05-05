@@ -65,7 +65,13 @@ WhiteNoise ausgeliefert.
 Image bauen:
 
 ```bash
-docker build -t rezeptinger:local .
+make docker-build
+```
+
+Dockerfile und Compose-Konfiguration prüfen:
+
+```bash
+make docker-check
 ```
 
 Container mit benanntem Volume starten:

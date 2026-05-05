@@ -1,4 +1,4 @@
-.PHONY: help install sync setup migrate server worker dev ruff test check collectstatic docker-build compose-up compose-worker compose-down
+.PHONY: help install sync setup migrate server worker dev ruff test check collectstatic docker-lint docker-check docker-build compose-up compose-worker compose-down
 
 PYTHON_VERSION := 3.12
 HOST := 127.0.0.1
@@ -12,6 +12,8 @@ help:
 	@echo "  make worker         Run Huey worker for background extraction"
 	@echo "  make dev            Run migrations, then start the dev server"
 	@echo "  make check          Run ruff and Django tests"
+	@echo "  make docker-lint    Lint Dockerfile with Hadolint"
+	@echo "  make docker-check   Run Docker lint and Compose config checks"
 	@echo "  make docker-build   Build local Docker image"
 	@echo "  make compose-up     Start Docker Compose web service"
 	@echo "  make compose-worker Start Docker Compose web service plus worker"
@@ -46,6 +48,13 @@ check: ruff test
 
 collectstatic:
 	mise exec uv -- uv run python manage.py collectstatic --noinput
+
+docker-lint:
+	docker run --rm -i hadolint/hadolint:latest < Dockerfile
+
+docker-check: docker-lint
+	docker compose config
+	docker compose --profile worker config
 
 docker-build:
 	docker build -t rezeptinger:local .

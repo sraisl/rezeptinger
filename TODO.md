@@ -2,7 +2,7 @@
 
 ## Next
 
-- [ ] Add Dockerfile linting, for example Hadolint.
+- [ ] Add container image vulnerability scanning, for example Trivy.
 
 ## Product
 
@@ -19,12 +19,12 @@
 
 ## CI And Security
 
-- [ ] Add container image vulnerability scanning, for example Trivy.
 - [ ] Upload security findings as SARIF where useful.
 - [ ] Add a GitHub release flow where tags like `vX.Y.Z` publish GHCR images and release notes.
 
 ## Done
 
+- [x] Add Dockerfile linting with Hadolint in Makefile and CI.
 - [x] Add Makefile task runner for local setup, dev server, worker, checks, and Docker tasks.
 - [x] Add a production-style container variant with Gunicorn instead of Django `runserver`.
 - [x] Run the container as a non-root user.
