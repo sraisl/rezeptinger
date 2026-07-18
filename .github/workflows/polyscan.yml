@@ -14,7 +14,7 @@ jobs:
         - uses: actions/checkout@v7
   
         - name: PolyScan self-scan
-          uses: sraisl/polyscan@v1
+          uses: sraisl/polyscan@v2
           with:
             target: "."
             engines: "semgrep,bandit,eslint"   # add "spotbugs" for Java/Kotlin
