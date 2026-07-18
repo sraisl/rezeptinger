@@ -7,31 +7,25 @@ on:
 
 jobs:
   polyscan:
-      runs-on: ubuntu-latest
-      permissions:
-        security-events: write   # upload SARIF to code scanning
-        contents: read
-      steps:
-        - uses: actions/checkout@v7
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
 
-        - name: PolyScan self-scan
-          uses: sraisl/polyscan@v3
-          with:
-            target: "."
-            engines: "semgrep,bandit,eslint"   # add "spotbugs" for Java/Kotlin
-            format: "sarif"
+      - name: PolyScan
+        id: scan
+        uses: sraisl/polyscan-action@v2
+        with:
+          target: "."
+          engines: "semgrep,bandit,eslint"   # add "spotbugs" for Java/Kotlin
+          gate: "false"
+          sarif: "true"
+          sbom: "true"
+          upload-artifacts: "true"   # SARIF + SBOM + summary land as a workflow artifact
 
-        - name: Upload SARIF to GitHub code scanning
-          if: always()
-          uses: github/codeql-action/upload-sarif@v4
-          with:
-            sarif_file: polyscan.sarif
-
-        - name: Job Summary
-          if: always()
-          run: |
-            if [ -f polyscan-summary.md ]; then
-              cat polyscan-summary.md >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "PolyScan produced no summary file." >> "$GITHUB_STEP_SUMMARY"
-            fi
+      - name: Show totals
+        run: |
+          echo "total=${{ steps.scan.outputs.total }}"
+          echo "high=${{ steps.scan.outputs.high }}"
+          echo "gate-passed=${{ steps.scan.outputs.gate-passed }}"
