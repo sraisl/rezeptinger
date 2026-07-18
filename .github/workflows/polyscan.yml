@@ -2,9 +2,10 @@ name: polyscan sast
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
-  
   polyscan:
       runs-on: ubuntu-latest
       permissions:
@@ -12,15 +13,19 @@ jobs:
         contents: read
       steps:
         - uses: actions/checkout@v7
-  
+
         - name: PolyScan self-scan
           uses: sraisl/polyscan@v2
           with:
             target: "."
             engines: "semgrep,bandit,eslint"   # add "spotbugs" for Java/Kotlin
             format: "sarif"
-  
+
         - name: Upload SARIF to GitHub code scanning
           uses: github/codeql-action/upload-sarif@v4
           with:
             sarif_file: polyscan.sarif
+
+        - name: Job Summary
+          if: always()
+          run: cat polyscan-summary.md >> "$GITHUB_STEP_SUMMARY"
