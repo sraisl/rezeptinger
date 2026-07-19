@@ -4,28 +4,24 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   polyscan:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v5
 
       - name: PolyScan
         id: scan
-        uses: sraisl/polyscan-action@v2
+        uses: sraisl/polyscan-action@v4
         with:
           target: "."
-          engines: "semgrep,bandit,eslint"   # add "spotbugs" for Java/Kotlin
+          engines: "semgrep,bandit,eslint,spotbugs,trivy,detekt,gitleaks"
           gate: "false"
           sarif: "true"
           sbom: "true"
-          upload-artifacts: "true"   # SARIF + SBOM + summary land as a workflow artifact
-
-      - name: Show totals
-        run: |
-          echo "total=${{ steps.scan.outputs.total }}"
-          echo "high=${{ steps.scan.outputs.high }}"
-          echo "gate-passed=${{ steps.scan.outputs.gate-passed }}"
+          upload-artifacts: "true"
